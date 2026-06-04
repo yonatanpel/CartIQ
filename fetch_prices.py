@@ -28,39 +28,39 @@ def load_category_mapping():
 def determine_category(product_name):
     name = product_name.lower()
 
-    # --- שכבה 1: בדיקת מותגים (סדר עדיפות עליון) ---
+    # --- שכבה 1: מותגים (סדר עדיפות עליון) ---
     
-    # טואלטיקה ופארם
+    # טואלטיקה ופארם - אם מותג מזוהה כאן, זהו זה, לא ממשיך הלאה
     if any(brand in name for brand in ["פינוק", "דאב", "dove", "פנטן", "הד אנד שולדרס", "קולגייט", "אורל בי", "קרליין", "לוריאל", "גרנייה", "נקה 7", "פיניש"]):
         return "טואלטיקה וניקוי"
     
-    # מוצרי חלב
-    if any(brand in name for brand in ["תנובה", "טרה", "שטראוס", "יופלה", "דנונה", "יטבתה", "מולר"]):
+    # חלב - אם מותג מזוהה כאן, עוצר
+    elif any(brand in name for brand in ["תנובה", "טרה", "שטראוס", "יופלה", "דנונה", "יטבתה", "מולר"]):
         return "מוצרי חלב וביצים"
         
-    # בשר ועוף
-    if any(brand in name for brand in ["זוגלובק", "טירת צבי", "עוף טוב", "מילועוף"]):
+    # בשר - אם מותג מזוהה כאן, עוצר
+    elif any(brand in name for brand in ["זוגלובק", "טירת צבי", "עוף טוב", "מילועוף"]):
         return "עוף, בשר, דגים"
 
-    # --- שכבה 2: בדיקת מילות מפתח (שם מוצר כללי) ---
-    # נבדק רק אם לא נמצא מותג בשכבה הראשונה
+    # --- שכבה 2: מילות מפתח (רק אם לא נמצא מותג) ---
     
-    if any(keyword in name for keyword in ["סבון", "שמפו", "מרכך", "דאודורנט", "אקונומיקה", "כביסה"]):
+    elif any(keyword in name for keyword in ["סבון", "שמפו", "מרכך", "דאודורנט", "אקונומיקה", "כביסה"]):
         return "טואלטיקה וניקוי"
         
-    if any(keyword in name for keyword in ["עגבני", "מלפפון", "גזר", "פלפל", "בצל"]):
+    elif any(keyword in name for keyword in ["עגבני", "מלפפון", "גזר", "פלפל", "בצל"]):
         return "ירקות טריים"
     
-    if any(keyword in name for keyword in ["תפוח", "בננה", "תפוז", "אגס", "אבוקדו"]):
+    elif any(keyword in name for keyword in ["תפוח", "בננה", "תפוז", "אגס", "אבוקדו"]):
         return "פירות טריים"
 
-    if any(keyword in name for keyword in ["עוף", "בשר", "דג", "נקניק"]):
+    elif any(keyword in name for keyword in ["עוף", "בשר", "דג", "נקניק"]):
         return "עוף, בשר, דגים"
         
-    if any(keyword in name for keyword in ["לחם", "פיתה", "עוגות"]):
+    elif any(keyword in name for keyword in ["לחם", "פיתה", "עוגות"]):
         return "מאפה ולחם"
 
-    return "מזווה וכללי"
+    else:
+        return "מזווה וכללי"
 def fetch_shufersal_real_prices(store_id="1", chain_id=1):
     print(f"[{datetime.datetime.now()}] Connecting to Shufersal...")
     base_url = "http://prices.shufersal.co.il"
