@@ -131,13 +131,32 @@ st.markdown("""
 
 DATA_DIR = Path(__file__).parent / "data"
 
-@st.cache_data
+import sqlite3
+
+# ... (שאר הייבוא והגדרות העיצוב שכבר יש לך ב-app.py)
+
+@st.cache_data(ttl=3600) # הנתונים יתרעננו כל שעה
 def load_data():
-    products = pd.read_csv(DATA_DIR / "products.csv")
-    chains = pd.read_csv(DATA_DIR / "chains.csv")
-    prices = pd.read_csv(DATA_DIR / "prices.csv")
-    promotions = pd.read_csv(DATA_DIR / "promotions.csv")
+    db_path = DATA_DIR / "cartiq.db"
+    
+    # נוודא שמסד הנתונים קיים
+    if not db_path.exists():
+        st.error("מסד הנתונים לא נמצא! אנא הרץ את init_db.py קודם.")
+        st.stop()
+        
+    conn = sqlite3.connect(db_path)
+    
+    # קריאת הנתונים ישירות מהטבלאות לתוך Pandas DataFrames
+    products = pd.read_sql_query("SELECT * FROM products", conn)
+    chains = pd.read_sql_query("SELECT * FROM chains", conn)
+    prices = pd.read_sql_query("SELECT * FROM prices", conn)
+    promotions = pd.read_sql_query("SELECT * FROM promotions", conn)
+    
+    conn.close()
+    
     return products, chains, prices, promotions
+
+# ... (שאר הקוד של app.py ממשיך כרגיל)
 
 def get_discount(product_id, chain_id, base_total, promotions):
     rows = promotions[
