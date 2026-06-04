@@ -237,6 +237,8 @@ with tab1:
     with col_src:
         search = st.text_input("חיפוש חופשי (מומלץ! הקלידו שם מוצר או מותג)")
 
-    # מנגנון סינון חכם
+ # מנגנון סינון חכם
     if search:
-        filtered = products[products["product_name"].str.contains(search, case=
+        filtered = products[products["product_name"].str.contains(search, case=False, na=False)]
+    else:
+        filtered = products[products["category"] == category]
