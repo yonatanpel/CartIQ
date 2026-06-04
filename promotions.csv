@@ -1,0 +1,4 @@
+promotion_id,product_id,chain_id,promotion_type,discount_value,start_date,end_date
+1,7,4,fixed_total,2.00,2026-06-01,2026-06-10
+2,8,2,fixed_total,3.00,2026-06-01,2026-06-15
+3,3,5,percent,10,2026-06-01,2026-06-12
