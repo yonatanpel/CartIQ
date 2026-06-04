@@ -262,51 +262,39 @@ with tab2:
                     st.write(f"🍏 **{row['product_name']}** — כמות: `{row['quantity']}`")
 
 with tab3:
-    st.subheader("🧠 מנוע אופטימיזציה")
+    st.subheader("🧠 מנוע אופטימיזציה ובקרת תקציב")
     
-    col_budget, col_btn = st.columns([2, 1])
-    with col_budget:
-        budget = st.number_input("תקציב מקסימלי (אופציונלי, השאר 0 ללא הגבלה)", min_value=0.0, value=0.0, step=10.0)
-    with col_btn:
-        st.write("<br>", unsafe_allow_html=True)
-        calc_button = st.button("🚀 חשב את הסל הזול ביותר", use_container_width=True)
-
-    if calc_button:
+    budget = st.number_input("הגדר תקציב מקסימלי (₪)", min_value=0.0, value=0.0, step=50.0)
+    
+    if st.button("🚀 חשב עלות ובדוק חריגות"):
         if not st.session_state.cart:
-            st.error("הסל ריק! אנא בחר מוצרים.")
+            st.error("הסל ריק!")
         else:
-            with st.spinner("משווה מול מחירים חיים..."):
-                costs_df = calculate_costs(st.session_state.cart, prices, chains, promotions)
-                
-                if costs_df.empty:
-                    st.error("לא נמצאו מחירים למוצרים אלו ברשתות השיווק.")
-                else:
-                    best_chain, within_budget = choose_best_chain(costs_df, budget)
-                    sorted_costs = costs_df.sort_values("עלות סל")
-
-                    st.write("### 📊 השוואת עלויות מלאה")
-                    st.dataframe(sorted_costs[["רשת", "עלות סל"]], use_container_width=True, hide_index=True)
-
-                    st.write("### 🏆 השורה התחתונה")
-                    res_col1, res_col2 = st.columns(2)
+            # חישוב העלות (נניח ממוצע רשתות לצורך הבקרה)
+            current_total = calculate_costs(st.session_state.cart, prices, chains, promotions)["עלות סל"].mean()
+            
+            # הצגת מדד מרכזי
+            st.metric(label="עלות מוערכת של הסל הנוכחי", value=f"{current_total:.2f} ₪")
+            
+            # --- בקרת תקציב ---
+            if budget > 0:
+                if current_total > budget:
+                    diff = current_total - budget
+                    st.error(f"⚠️ חריגה בתקציב! אתה מעל התקציב ב-{diff:.2f} ₪.")
                     
-                    with res_col1:
-                        st.markdown(f"""
-                        <div class="metric-container">
-                            <span style="font-size: 16px; font-weight: bold;">הרשת המשתלמת ביותר</span>
-                            <h2 style="color: #8b5cf6;">{best_chain['רשת']}</h2>
-                            <span style="font-size: 28px; font-weight: 800;">{best_chain['עלות סל']} ₪</span>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                    with res_col2:
-                        if len(sorted_costs) > 1:
-                            saving = round(sorted_costs.iloc[1]["עלות סל"] - best_chain["עלות סל"], 2)
-                            st.markdown(f"""
-                            <div class="saving-container">
-                                <h2>{saving} ₪</h2>
-                                <span>יותר זול מהרשת הבאה בתור!</span>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        else:
-                            st.info("כאשר נחבר את שאר הרשתות, יוצג כאן מדד החיסכון המדויק!")
+                    st.write("### 💡 מוצרים להסרה כדי לחזור לתקציב:")
+                    # מציאת המוצרים היקרים ביותר בסל
+                    cart_products = products[products["product_id"].isin(st.session_state.cart.keys())]
+                    # חישוב מחיר לכל מוצר בסל (בלי התחשבות במבצעים מורכבים לדיוק מהיר)
+                    cart_products = cart_products.merge(prices.groupby("product_id")["price"].mean(), on="product_id")
+                    
+                    suggestions = cart_products.sort_values("price", ascending=False).head(3)
+                    
+                    for _, row in suggestions.iterrows():
+                        col_s1, col_s2 = st.columns([3, 1])
+                        col_s1.write(f"הסר את **{row['product_name']}** (יחסוך לך כ-{row['price']:.2f} ₪)")
+                        if col_s2.button("הסר", key=f"del_{row['product_id']}"):
+                            del st.session_state.cart[str(row['product_id'])]
+                            st.rerun()
+                else:
+                    st.success(f"✅ אתה עומד בתקציב! נותרו לך {budget - current_total:.2f} ₪ פנויים.")
