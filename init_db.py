@@ -5,21 +5,20 @@ from database import get_connection, create_tables
 DATA_DIR = Path("data")
 
 def load_csv_to_db():
-    # 1. יצירת הטבלאות עם כל החוקים והמפתחות (Primary Keys)
-    create_tables()
     conn = get_connection()
     cursor = conn.cursor()
 
-    # 2. ריקון הטבלאות למקרה שיש בהן כבר נתונים, כדי למנוע כפילויות
-    cursor.execute("DELETE FROM products")
-    cursor.execute("DELETE FROM chains")
-    cursor.execute("DELETE FROM prices")
-    cursor.execute("DELETE FROM promotions")
+    # 1. הפעולה הקריטית: מחיקה מוחלטת של הטבלאות הפגומות מהזיכרון
+    cursor.execute("DROP TABLE IF EXISTS products")
+    cursor.execute("DROP TABLE IF EXISTS chains")
+    cursor.execute("DROP TABLE IF EXISTS prices")
+    cursor.execute("DROP TABLE IF EXISTS promotions")
     conn.commit()
 
-    # 3. הכנסת הנתונים מקבצי ה-CSV במצב 'append' 
-    # זה מוסיף את הנתונים מבלי לדרוס ולמחוק את הגדרות הטבלה!
-    
+    # 2. בניית הטבלאות מחדש, והפעם כשהן ריקות - המפתחות הראשיים ייווצרו בהצלחה!
+    create_tables()
+
+    # 3. הכנסת הנתונים הבסיסיים מקבצי ה-CSV
     try:
         pd.read_csv(DATA_DIR / "products.csv").to_sql(
             "products", conn, if_exists="append", index=False
