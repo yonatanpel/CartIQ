@@ -26,14 +26,41 @@ def load_category_mapping():
         return {}
 
 def determine_category(product_name):
-    mapping = load_category_mapping()
     name = product_name.lower()
-    
-    for keyword, category in mapping.items():
-        if keyword in name:
-            return category
-    return "אחר / כללי"
 
+    # --- שכבה 1: בדיקת מותגים (סדר עדיפות עליון) ---
+    
+    # טואלטיקה ופארם
+    if any(brand in name for brand in ["פינוק", "דאב", "dove", "פנטן", "הד אנד שולדרס", "קולגייט", "אורל בי", "קרליין", "לוריאל", "גרנייה", "נקה 7", "פיניש"]):
+        return "טואלטיקה וניקוי"
+    
+    # מוצרי חלב
+    if any(brand in name for brand in ["תנובה", "טרה", "שטראוס", "יופלה", "דנונה", "יטבתה", "מולר"]):
+        return "מוצרי חלב וביצים"
+        
+    # בשר ועוף
+    if any(brand in name for brand in ["זוגלובק", "טירת צבי", "עוף טוב", "מילועוף"]):
+        return "עוף, בשר, דגים"
+
+    # --- שכבה 2: בדיקת מילות מפתח (שם מוצר כללי) ---
+    # נבדק רק אם לא נמצא מותג בשכבה הראשונה
+    
+    if any(keyword in name for keyword in ["סבון", "שמפו", "מרכך", "דאודורנט", "אקונומיקה", "כביסה"]):
+        return "טואלטיקה וניקוי"
+        
+    if any(keyword in name for keyword in ["עגבני", "מלפפון", "גזר", "פלפל", "בצל"]):
+        return "ירקות טריים"
+    
+    if any(keyword in name for keyword in ["תפוח", "בננה", "תפוז", "אגס", "אבוקדו"]):
+        return "פירות טריים"
+
+    if any(keyword in name for keyword in ["עוף", "בשר", "דג", "נקניק"]):
+        return "עוף, בשר, דגים"
+        
+    if any(keyword in name for keyword in ["לחם", "פיתה", "עוגות"]):
+        return "מאפה ולחם"
+
+    return "מזווה וכללי"
 def fetch_shufersal_real_prices(store_id="1", chain_id=1):
     print(f"[{datetime.datetime.now()}] Connecting to Shufersal...")
     base_url = "http://prices.shufersal.co.il"
