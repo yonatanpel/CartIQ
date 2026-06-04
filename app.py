@@ -202,60 +202,50 @@ tab1, tab2, tab3 = st.tabs([
 ])
 
 with tab1:
-    st.subheader("🔍 חפשו והוסיפו מוצרים מסניפי השטח")
+    st.subheader("🔍 חפשו והוסיפו מוצרים")
     
     col_cat, col_src = st.columns([1, 1])
     with col_cat:
-        category = st.selectbox("בחר מחלקה / קטגוריה", sorted(products["category"].unique()))
+        # הוספנו אימוג'ים ליד כל קטגוריה
+        cat_icons = {
+            "ירקות טריים": "🥦", "פירות טריים": "🍎", "מוצרי חלב וביצים": "🧀",
+            "עוף, בשר, דגים": "🥩", "מאפה ולחם": "🍞", "טואלטיקה וניקוי": "🧼",
+            "מזווה": "🥫", "משקאות ואירוח": "🥤", "קפואים": "🧊", "כללי": "🛒"
+        }
+        category = st.selectbox("בחר מחלקה", sorted(products["category"].unique()), 
+                                format_func=lambda x: f"{cat_icons.get(x, '🛒')} {x}")
     with col_src:
-        # שימוש ב-strip למניעת בעיות של רווחים נסתרים
-        search = st.text_input("חיפוש חופשי (מומלץ! הקלידו שם מוצר או מותג)").strip()
+        search = st.text_input("חיפוש חופשי").strip()
 
-    # מנגנון סינון חכם ומאובטח
     if search:
         filtered = products[products["product_name"].str.contains(search, case=False, na=False)]
     else:
         filtered = products[products["category"] == category]
 
     total_found = len(filtered)
+    st.metric(label="מוצרים זמינים", value=total_found)
     
-    # מדד כמות בולט כדי לוודא שהדאטא עולה
-    st.metric(label="מוצרים זמינים להצגה", value=total_found)
-
-    # הגבלת תצוגה כדי לשמור על מהירות תגובה
-    if total_found > 30:
-        st.info("💡 מציג את 30 המוצרים הראשונים בלבד כדי לשמור על מהירות האתר. השתמשו בתיבת החיפוש החופשי כדי למקד.")
-        filtered = filtered.head(30)
-
     st.write("---")
 
-    if filtered.empty:
-        st.warning("לא נמצאו מוצרים להצגה בקטגוריה זו. נסו לנקות את תיבת החיפוש החופשי.")
-    else:
-        # הצגת מוצרים מבוססת אלמנטים מובנים של Streamlit למניעת קריסות תווים
-        for _, product in filtered.iterrows():
-            product_id = str(product["product_id"])
-            p_name = product["product_name"]
-            p_brand = product["brand"]
-            p_unit = product["unit"]
-            
-            # יצירת קופסה מאובטחת לכל מוצר
-            with st.container(border=True):
-                st.write(f"🍏 **{p_name}**")
-                st.caption(f"מותג: {p_brand} | יחידת מידה: {p_unit}")
-                
-                c1, c2, _ = st.columns([2, 2, 5])
-                with c1:
-                    checked = st.checkbox("הוסף לסל", value=product_id in st.session_state.cart, key=f"check_{product_id}")
-                with c2:
-                    if checked:
-                        quantity = st.number_input(
-                            "כמות", min_value=1, value=st.session_state.cart.get(product_id, 1), step=1, key=f"qty_{product_id}"
-                        )
-                        st.session_state.cart[product_id] = int(quantity)
-                    elif product_id in st.session_state.cart:
-                        del st.session_state.cart[product_id]
-
+    # תצוגת טבלה דחוסה: שם מוצר + צ'קבוקס בצד
+    # אנחנו משתמשים ב-container כדי ליצור רשימה נקייה ללא "למטה" מיותר
+    for _, product in filtered.head(50).iterrows(): # הגדלנו ל-50 שורות במבט אחד
+        product_id = str(product["product_id"])
+        
+        # יצירת שורה אחת דחוסה: צ'קבוקס (שם המוצר)
+        is_checked = st.checkbox(f"{product['product_name']}", 
+                                 key=f"check_{product_id}", 
+                                 value=product_id in st.session_state.cart)
+        
+        if is_checked:
+            # אם מסומן, הצג תיבת כמות קטנה בצד (בתוך columns כדי שיהיה צמוד)
+            c1, c2 = st.columns([4, 1])
+            with c2:
+                qty = st.number_input("כמות", min_value=1, value=st.session_state.cart.get(product_id, 1), 
+                                      step=1, key=f"qty_{product_id}", label_visibility="collapsed")
+                st.session_state.cart[product_id] = int(qty)
+        elif product_id in st.session_state.cart:
+            del st.session_state.cart[product_id]
 with tab2:
     st.subheader("📋 מוצרים שנבחרו כרגע")
 
@@ -271,51 +261,39 @@ with tab2:
                     st.write(f"🍏 **{row['product_name']}** — כמות: `{row['quantity']}`")
 
 with tab3:
-    st.subheader("🧠 מנוע אופטימיזציה")
+    st.subheader("🧠 מנוע אופטימיזציה ובקרת תקציב")
     
-    col_budget, col_btn = st.columns([2, 1])
-    with col_budget:
-        budget = st.number_input("תקציב מקסימלי (אופציונלי, השאר 0 ללא הגבלה)", min_value=0.0, value=0.0, step=10.0)
-    with col_btn:
-        st.write("<br>", unsafe_allow_html=True)
-        calc_button = st.button("🚀 חשב את הסל הזול ביותר", use_container_width=True)
-
-    if calc_button:
+    budget = st.number_input("הגדר תקציב מקסימלי (₪)", min_value=0.0, value=0.0, step=50.0)
+    
+    if st.button("🚀 חשב עלות ובדוק חריגות"):
         if not st.session_state.cart:
-            st.error("הסל ריק! אנא בחר מוצרים.")
+            st.error("הסל ריק!")
         else:
-            with st.spinner("משווה מול מחירים חיים..."):
-                costs_df = calculate_costs(st.session_state.cart, prices, chains, promotions)
-                
-                if costs_df.empty:
-                    st.error("לא נמצאו מחירים למוצרים אלו ברשתות השיווק.")
-                else:
-                    best_chain, within_budget = choose_best_chain(costs_df, budget)
-                    sorted_costs = costs_df.sort_values("עלות סל")
-
-                    st.write("### 📊 השוואת עלויות מלאה")
-                    st.dataframe(sorted_costs[["רשת", "עלות סל"]], use_container_width=True, hide_index=True)
-
-                    st.write("### 🏆 השורה התחתונה")
-                    res_col1, res_col2 = st.columns(2)
+            # חישוב העלות (נניח ממוצע רשתות לצורך הבקרה)
+            current_total = calculate_costs(st.session_state.cart, prices, chains, promotions)["עלות סל"].mean()
+            
+            # הצגת מדד מרכזי
+            st.metric(label="עלות מוערכת של הסל הנוכחי", value=f"{current_total:.2f} ₪")
+            
+            # --- בקרת תקציב ---
+            if budget > 0:
+                if current_total > budget:
+                    diff = current_total - budget
+                    st.error(f"⚠️ חריגה בתקציב! אתה מעל התקציב ב-{diff:.2f} ₪.")
                     
-                    with res_col1:
-                        st.markdown(f"""
-                        <div class="metric-container">
-                            <span style="font-size: 16px; font-weight: bold;">הרשת המשתלמת ביותר</span>
-                            <h2 style="color: #8b5cf6;">{best_chain['רשת']}</h2>
-                            <span style="font-size: 28px; font-weight: 800;">{best_chain['עלות סל']} ₪</span>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                    with res_col2:
-                        if len(sorted_costs) > 1:
-                            saving = round(sorted_costs.iloc[1]["עלות סל"] - best_chain["עלות סל"], 2)
-                            st.markdown(f"""
-                            <div class="saving-container">
-                                <h2>{saving} ₪</h2>
-                                <span>יותר זול מהרשת הבאה בתור!</span>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        else:
-                            st.info("כאשר נחבר את שאר הרשתות, יוצג כאן מדד החיסכון המדויק!")
+                    st.write("### 💡 מוצרים להסרה כדי לחזור לתקציב:")
+                    # מציאת המוצרים היקרים ביותר בסל
+                    cart_products = products[products["product_id"].isin(st.session_state.cart.keys())]
+                    # חישוב מחיר לכל מוצר בסל (בלי התחשבות במבצעים מורכבים לדיוק מהיר)
+                    cart_products = cart_products.merge(prices.groupby("product_id")["price"].mean(), on="product_id")
+                    
+                    suggestions = cart_products.sort_values("price", ascending=False).head(3)
+                    
+                    for _, row in suggestions.iterrows():
+                        col_s1, col_s2 = st.columns([3, 1])
+                        col_s1.write(f"הסר את **{row['product_name']}** (יחסוך לך כ-{row['price']:.2f} ₪)")
+                        if col_s2.button("הסר", key=f"del_{row['product_id']}"):
+                            del st.session_state.cart[str(row['product_id'])]
+                            st.rerun()
+                else:
+                    st.success(f"✅ אתה עומד בתקציב! נותרו לך {budget - current_total:.2f} ₪ פנויים.")
