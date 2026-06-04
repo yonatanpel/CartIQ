@@ -35,15 +35,20 @@ h1, h2, h3, p, label, div {
 
 DATA_DIR = Path(__file__).parent / "data"
 
-
 @st.cache_data
 def load_data():
-    products = pd.read_csv(DATA_DIR / "products.csv")
-    chains = pd.read_csv(DATA_DIR / "chains.csv")
-    prices = pd.read_csv(DATA_DIR / "prices.csv")
-    promotions = pd.read_csv(DATA_DIR / "promotions.csv")
-    return products, chains, prices, promotions
+    import sqlite3
 
+    conn = sqlite3.connect("data/cartiq.db")
+
+    products = pd.read_sql_query("SELECT * FROM products", conn)
+    chains = pd.read_sql_query("SELECT * FROM chains", conn)
+    prices = pd.read_sql_query("SELECT * FROM prices", conn)
+    promotions = pd.read_sql_query("SELECT * FROM promotions", conn)
+
+    conn.close()
+
+    return products, chains, prices, promotions
 
 def get_discount(product_id, chain_id, base_total, promotions):
     rows = promotions[
