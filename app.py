@@ -206,7 +206,6 @@ with tab1:
     
     col_cat, col_src = st.columns([1, 1])
     with col_cat:
-        # הוספנו אימוג'ים ליד כל קטגוריה
         cat_icons = {
             "ירקות טריים": "🥦", "פירות טריים": "🍎", "מוצרי חלב וביצים": "🧀",
             "עוף, בשר, דגים": "🥩", "מאפה ולחם": "🍞", "טואלטיקה וניקוי": "🧼",
@@ -222,30 +221,26 @@ with tab1:
     else:
         filtered = products[products["category"] == category]
 
-    total_found = len(filtered)
-    st.metric(label="מוצרים זמינים", value=total_found)
-    
+    st.metric(label="מוצרים זמינים", value=len(filtered))
     st.write("---")
 
-    # תצוגת טבלה דחוסה: שם מוצר + צ'קבוקס בצד
-    # אנחנו משתמשים ב-container כדי ליצור רשימה נקייה ללא "למטה" מיותר
-    for _, product in filtered.head(50).iterrows(): # הגדלנו ל-50 שורות במבט אחד
+    # הצגת המוצרים בטבלה דחוסה עם כמות צמודה
+    for _, product in filtered.head(50).iterrows():
         product_id = str(product["product_id"])
         
-        # יצירת שורה אחת דחוסה: צ'קבוקס (שם המוצר)
-        is_checked = st.checkbox(f"{product['product_name']}", 
-                                 key=f"check_{product_id}", 
-                                 value=product_id in st.session_state.cart)
+        # חלוקה ל-3 עמודות באותה שורה: צ'קבוקס, שם מוצר, כמות
+        row_cols = st.columns([0.5, 3, 1])
+        
+        is_checked = row_cols[0].checkbox("", key=f"check_{product_id}", value=product_id in st.session_state.cart)
+        row_cols[1].write(f"**{product['product_name']}**")
         
         if is_checked:
-            # אם מסומן, הצג תיבת כמות קטנה בצד (בתוך columns כדי שיהיה צמוד)
-            c1, c2 = st.columns([4, 1])
-            with c2:
-                qty = st.number_input("כמות", min_value=1, value=st.session_state.cart.get(product_id, 1), 
-                                      step=1, key=f"qty_{product_id}", label_visibility="collapsed")
-                st.session_state.cart[product_id] = int(qty)
-        elif product_id in st.session_state.cart:
-            del st.session_state.cart[product_id]
+            qty = row_cols[2].number_input("כמות", min_value=1, value=st.session_state.cart.get(product_id, 1), 
+                                          step=1, key=f"qty_{product_id}", label_visibility="collapsed")
+            st.session_state.cart[product_id] = int(qty)
+        else:
+            if product_id in st.session_state.cart:
+                del st.session_state.cart[product_id]
 
 with tab2:
     st.subheader("📋 מוצרים שנבחרו כרגע")
