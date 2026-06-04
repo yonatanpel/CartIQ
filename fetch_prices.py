@@ -9,13 +9,15 @@ import io
 
 DB_PATH = Path("data/cartiq.db")
 
+def get_connection():
+    return sqlite3.connect(DB_PATH)
+
 def fetch_shufersal_real_prices(store_id="1", chain_id=1):
     print(f"[{datetime.datetime.now()}] Connecting to Shufersal portal for store {store_id}...")
     
     base_url = "http://prices.shufersal.co.il"
     search_url = f"{base_url}/FileObject/UpdateCategory?catID=2&storeId={store_id}"
     
-    # הוספנו כותרות (Headers) שגורמות לנו להיראות יותר כמו דפדפן אמיתי (כרום)
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
@@ -23,7 +25,7 @@ def fetch_shufersal_real_prices(store_id="1", chain_id=1):
     
     try:
         response = requests.get(search_url, headers=headers, timeout=20)
-        response.raise_for_status() # יוודא שאין שגיאת התחברות (כמו 403 או 404)
+        response.raise_for_status()
     except Exception as e:
         print(f"Failed to connect to Shufersal: {e}")
         return
@@ -31,37 +33,28 @@ def fetch_shufersal_real_prices(store_id="1", chain_id=1):
     soup = BeautifulSoup(response.text, 'html.parser')
     download_link = None
     
-    # חיפוש חכם יותר: לא משנה אותיות גדולות/קטנות
     for a in soup.find_all('a', href=True):
         href = a['href']
         href_lower = href.lower()
         
-        # מחפש קבצי מחירים (PriceFull) שמכווצים (gz או zip)
         if 'pricefull' in href_lower and ('gz' in href_lower or 'zip' in href_lower):
             download_link = href
-            # אם הקישור יחסי (מתחיל ב-/), נוסיף לו את כתובת האתר
             if download_link.startswith('/'):
                 download_link = base_url + download_link
             break
             
     if not download_link:
         print("Could not find today's PriceFull file.")
-        print("Here are the first 10 links I DID find on the page (for debugging):")
-        links_found = soup.find_all('a', href=True)
-        if not links_found:
-            print("No links found at all! The page might be empty or blocking us.")
-        for a in links_found[:10]:
-            print(f"- {a['href']}")
         return
 
     print(f"Success! Downloading latest price file: {download_link}")
     
     try:
-        file_response = requests.get(download_link, headers=headers, timeout=60)
+        # הקובץ גדול, אז נותנים לו יותר זמן לרדת (timeout=120)
+        file_response = requests.get(download_link, headers=headers, timeout=120)
         print("Decompressing file and parsing XML...")
         compressed_file = io.BytesIO(file_response.content)
         
-        # פתיחת כיווץ gz
         decompressed_file = gzip.GzipFile(fileobj=compressed_file)
         xml_content = decompressed_file.read()
         parse_and_store_xml(xml_content, chain_id)
@@ -69,7 +62,7 @@ def fetch_shufersal_real_prices(store_id="1", chain_id=1):
         print(f"Error during download or extraction: {e}")
 
 def parse_and_store_xml(xml_content, chain_id):
-    """קריאת הנתונים מתוך ה-XML והכנסתם לטבלאות שלנו ב-SQLite"""
+    print("Starting XML parsing...")
     root = ET.fromstring(xml_content)
     conn = get_connection()
     cursor = conn.cursor()
@@ -78,7 +71,6 @@ def parse_and_store_xml(xml_content, chain_id):
     prices_to_upsert = []
     current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # במבנה ה-XML של חוק המזון, כל מוצר נמצא בתוך תגית <Item>
     items = root.findall(".//Item")
     print(f"Found {len(items)} items in the XML file.")
 
@@ -96,7 +88,6 @@ def parse_and_store_xml(xml_content, chain_id):
             price_elem = item.find("ItemPrice")
             price = float(price_elem.text) if price_elem is not None else 0.0
             
-            # מדלגים על מוצרים שהמחיר שלהם 0 או שגוי
             if price <= 0:
                 continue
 
@@ -104,10 +95,9 @@ def parse_and_store_xml(xml_content, chain_id):
             prices_to_upsert.append((product_id, chain_id, price, current_time))
             
         except Exception as e:
-            # אם יש שורה שבורה ב-XML, נדלג עליה ונמשיך למוצר הבא
             continue
 
-    # הכנסה / עדכון של טבלת המוצרים
+    print("Saving products to database...")
     cursor.executemany("""
         INSERT INTO products (product_id, product_name, category, brand, unit)
         VALUES (?, ?, ?, ?, ?)
@@ -117,7 +107,7 @@ def parse_and_store_xml(xml_content, chain_id):
             unit=excluded.unit
     """, products_to_upsert)
 
-    # הכנסה / עדכון של טבלת המחירים
+    print("Saving prices to database...")
     cursor.executemany("""
         INSERT INTO prices (product_id, chain_id, price, last_update)
         VALUES (?, ?, ?, ?)
@@ -131,5 +121,4 @@ def parse_and_store_xml(xml_content, chain_id):
     print(f"Successfully updated database with {len(prices_to_upsert)} prices for Chain ID {chain_id}!")
 
 if __name__ == "__main__":
-    # הפעלת הסקריפט על סניף מס' 1 (נניח מוגדר אצלנו כשופרסל, chain_id=1)
     fetch_shufersal_real_prices(store_id="1", chain_id=1)
