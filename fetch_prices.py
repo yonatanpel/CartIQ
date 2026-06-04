@@ -9,58 +9,64 @@ import io
 
 DB_PATH = Path("data/cartiq.db")
 
-def get_connection():
-    return sqlite3.connect(DB_PATH)
-
 def fetch_shufersal_real_prices(store_id="1", chain_id=1):
-    """
-    מתחבר לאתר שקיפות המחירים של שופרסל,
-    מאתר את הקובץ המלא (PriceFull) של היום עבור סניף ספציפי,
-    מוריד, פותח את הכיווץ ומעדכן את מסד הנתונים.
-    """
     print(f"[{datetime.datetime.now()}] Connecting to Shufersal portal for store {store_id}...")
     
-    # הכתובת הרשמית שבה שופרסל מפרסמת את הקבצים (catID=2 מציין קבצי מחירים)
     base_url = "http://prices.shufersal.co.il"
     search_url = f"{base_url}/FileObject/UpdateCategory?catID=2&storeId={store_id}"
     
-    # אנחנו מגדירים 'User-Agent' כדי שהאתר לא יחשוב שאנחנו רובוט זדוני ויחסום אותנו
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-    response = requests.get(search_url, headers=headers)
+    # הוספנו כותרות (Headers) שגורמות לנו להיראות יותר כמו דפדפן אמיתי (כרום)
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+    }
     
-    if response.status_code != 200:
-        print(f"Error accessing Shufersal website. Status: {response.status_code}")
+    try:
+        response = requests.get(search_url, headers=headers, timeout=20)
+        response.raise_for_status() # יוודא שאין שגיאת התחברות (כמו 403 או 404)
+    except Exception as e:
+        print(f"Failed to connect to Shufersal: {e}")
         return
 
-    # 1. סורקים את קוד ה-HTML של האתר כדי למצוא את הקישור העדכני לקובץ המחירים המלא
     soup = BeautifulSoup(response.text, 'html.parser')
     download_link = None
     
+    # חיפוש חכם יותר: לא משנה אותיות גדולות/קטנות
     for a in soup.find_all('a', href=True):
         href = a['href']
-        if 'PriceFull' in href and href.endswith('.gz'):
+        href_lower = href.lower()
+        
+        # מחפש קבצי מחירים (PriceFull) שמכווצים (gz או zip)
+        if 'pricefull' in href_lower and ('gz' in href_lower or 'zip' in href_lower):
             download_link = href
+            # אם הקישור יחסי (מתחיל ב-/), נוסיף לו את כתובת האתר
+            if download_link.startswith('/'):
+                download_link = base_url + download_link
             break
             
     if not download_link:
         print("Could not find today's PriceFull file.")
+        print("Here are the first 10 links I DID find on the page (for debugging):")
+        links_found = soup.find_all('a', href=True)
+        if not links_found:
+            print("No links found at all! The page might be empty or blocking us.")
+        for a in links_found[:10]:
+            print(f"- {a['href']}")
         return
 
-    print(f"Downloading latest price file: {download_link}")
-    
-    # 2. הורדת הקובץ המכווץ
-    file_response = requests.get(download_link, headers=headers)
-    
-    print("Decompressing GZ file and parsing XML...")
-    compressed_file = io.BytesIO(file_response.content)
+    print(f"Success! Downloading latest price file: {download_link}")
     
     try:
-        # 3. פתיחת הכיווץ (.gz) בזמן אמת והעברת התוכן למפרסר
+        file_response = requests.get(download_link, headers=headers, timeout=60)
+        print("Decompressing file and parsing XML...")
+        compressed_file = io.BytesIO(file_response.content)
+        
+        # פתיחת כיווץ gz
         decompressed_file = gzip.GzipFile(fileobj=compressed_file)
         xml_content = decompressed_file.read()
         parse_and_store_xml(xml_content, chain_id)
     except Exception as e:
-        print(f"Error decompressing or parsing file: {e}")
+        print(f"Error during download or extraction: {e}")
 
 def parse_and_store_xml(xml_content, chain_id):
     """קריאת הנתונים מתוך ה-XML והכנסתם לטבלאות שלנו ב-SQLite"""
