@@ -12,6 +12,33 @@ DB_PATH = Path("data/cartiq.db")
 def get_connection():
     return sqlite3.connect(DB_PATH)
 
+def determine_category(product_name):
+    """
+    מנגנון חכם שמסווג מוצר לקטגוריה על פי מילות מפתח בשם שלו.
+    ניתן להרחיב את הרשימה הזו בקלות בעתיד.
+    """
+    name = product_name.lower()
+    
+    # הגדרת מילות מפתח לכל קטגוריה
+    categories_mapping = {
+        "ירקות טריים": ["עגבני", "מלפפון", "גזר", "בצל", "תפוחי אדמה", "חסה", "פלפל", "קישוא", "כרובית", "ברוקולי", "פטרוזיליה", "צנון", "שום", "לקט ירק"],
+        "פירות טריים": ["תפוח", "בננה", "תפוז", "אבטיח", "מלון", "ענבים", "תות", "אפרסק", "אגס", "קלמנטינה", "לימון", "תמר", "אפרסמון"],
+        "מוצרי חלב וביצים": ["חלב", "גבינ", "קוטג", "יוגורט", "שמנת", "חמאה", "ביצי", "מעדן", "לבן", "קצפת", "מוצרלה", "פרמזן", "יוגורט"],
+        "משקאות ואירוח": ["קולה", "מים", "מיץ", "סודה", "משקה", "נביעות", "עין גדי", "פריגת", "פנטה", "ספרייט", "בירה", "יין", "טוניק", "נקטר"],
+        "מאפה ולחם": ["לחם", "פיתה", "לחמניה", "באגט", "קרואסון", "עוגה", "עוגיות", "מאפה", "פילסברי", "פניני", "טוסט"],
+        "בשר, עוף ודגים": ["עוף", "בשר", "נקניק", "המבורגר", "דג", "טונה", "סלמון", "נקניקיות", "שניצל", "פרגיות", "קבב", "טלה", "סטייק"],
+        "קפואים": ["קפוא", "גלידה", "צ'יפס", "מלווח", "ג'חנון", "בורקס", "פיצה קפואה", "קרמבו", "שלגון"],
+        "מזווה וכללי": ["אורז", "פסטה", "פתיתים", "שמן", "סוכר", "מלח", "קמח", "רוטב", "קצ'ופ", "מיונז", "שימורי", "תבלין", "שוקולד", "חטיף", "במבה", "ביסלי", "קפה", "תניס", "קורנפלקס", "דגני"]
+    }
+    
+    # סריקה ובדיקה האם שם המוצר מכיל את אחת ממילות המפתח
+    for category, keywords in categories_mapping.items():
+        for keyword in keywords:
+            if keyword in name:
+                return category
+                
+    return "אחר / כללי" # ברירת מחדל אם לא נמצאה התאמה
+
 def fetch_shufersal_real_prices(store_id="1", chain_id=1):
     print(f"[{datetime.datetime.now()}] Connecting to Shufersal portal for store {store_id}...")
     
@@ -50,7 +77,6 @@ def fetch_shufersal_real_prices(store_id="1", chain_id=1):
     print(f"Success! Downloading latest price file: {download_link}")
     
     try:
-        # הקובץ גדול, אז נותנים לו יותר זמן לרדת (timeout=120)
         file_response = requests.get(download_link, headers=headers, timeout=120)
         print("Decompressing file and parsing XML...")
         compressed_file = io.BytesIO(file_response.content)
@@ -79,6 +105,9 @@ def parse_and_store_xml(xml_content, chain_id):
             product_id = item.find("ItemCode").text
             product_name = item.find("ItemName").text
             
+            # שימוש במנגנון החדש לקביעת הקטגוריה לפי שם המוצר!
+            category = determine_category(product_name)
+            
             manufacture = item.find("ManufactureName")
             brand = manufacture.text if manufacture is not None and manufacture.text else "לא צוין"
             
@@ -91,18 +120,19 @@ def parse_and_store_xml(xml_content, chain_id):
             if price <= 0:
                 continue
 
-            products_to_upsert.append((product_id, product_name, "כללי", brand, unit))
+            products_to_upsert.append((product_id, product_name, category, brand, unit))
             prices_to_upsert.append((product_id, chain_id, price, current_time))
             
         except Exception as e:
             continue
 
-    print("Saving products to database...")
+    print("Saving products to database with dynamic categories...")
     cursor.executemany("""
         INSERT INTO products (product_id, product_name, category, brand, unit)
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(product_id) DO UPDATE SET
             product_name=excluded.product_name,
+            category=excluded.category,
             brand=excluded.brand,
             unit=excluded.unit
     """, products_to_upsert)
@@ -122,3 +152,4 @@ def parse_and_store_xml(xml_content, chain_id):
 
 if __name__ == "__main__":
     fetch_shufersal_real_prices(store_id="1", chain_id=1)
+    
