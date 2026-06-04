@@ -202,59 +202,50 @@ tab1, tab2, tab3 = st.tabs([
 ])
 
 with tab1:
-    st.subheader("🔍 חפשו והוסיפו מוצרים מסניפי השטח")
+    st.subheader("🔍 חפשו והוסיפו מוצרים")
     
     col_cat, col_src = st.columns([1, 1])
     with col_cat:
-        category = st.selectbox("בחר מחלקה / קטגוריה", sorted(products["category"].unique()))
+        # הוספנו אימוג'ים ליד כל קטגוריה
+        cat_icons = {
+            "ירקות טריים": "🥦", "פירות טריים": "🍎", "מוצרי חלב וביצים": "🧀",
+            "עוף, בשר, דגים": "🥩", "מאפה ולחם": "🍞", "טואלטיקה וניקוי": "🧼",
+            "מזווה": "🥫", "משקאות ואירוח": "🥤", "קפואים": "🧊", "כללי": "🛒"
+        }
+        category = st.selectbox("בחר מחלקה", sorted(products["category"].unique()), 
+                                format_func=lambda x: f"{cat_icons.get(x, '🛒')} {x}")
     with col_src:
-        # שימוש ב-strip למניעת בעיות של רווחים נסתרים
-        search = st.text_input("חיפוש חופשי (מומלץ! הקלידו שם מוצר או מותג)").strip()
+        search = st.text_input("חיפוש חופשי").strip()
 
-    # מנגנון סינון חכם ומאובטח
     if search:
         filtered = products[products["product_name"].str.contains(search, case=False, na=False)]
     else:
         filtered = products[products["category"] == category]
 
     total_found = len(filtered)
+    st.metric(label="מוצרים זמינים", value=total_found)
     
-    # מדד כמות בולט כדי לוודא שהדאטא עולה
-    st.metric(label="מוצרים זמינים להצגה", value=total_found)
-
-    # הגבלת תצוגה כדי לשמור על מהירות תגובה
-    if total_found > 30:
-        st.info("💡 מציג את 30 המוצרים הראשונים בלבד כדי לשמור על מהירות האתר. השתמשו בתיבת החיפוש החופשי כדי למקד.")
-        filtered = filtered.head(30)
-
     st.write("---")
 
-    if filtered.empty:
-        st.warning("לא נמצאו מוצרים להצגה בקטגוריה זו. נסו לנקות את תיבת החיפוש החופשי.")
-    else:
-        # הצגת מוצרים מבוססת אלמנטים מובנים של Streamlit למניעת קריסות תווים
-        for _, product in filtered.iterrows():
-            product_id = str(product["product_id"])
-            p_name = product["product_name"]
-            p_brand = product["brand"]
-            p_unit = product["unit"]
-            
-            # יצירת קופסה מאובטחת לכל מוצר
-            with st.container(border=True):
-                st.write(f"🍏 **{p_name}**")
-                st.caption(f"מותג: {p_brand} | יחידת מידה: {p_unit}")
-                
-                c1, c2, _ = st.columns([2, 2, 5])
-                with c1:
-                    checked = st.checkbox("הוסף לסל", value=product_id in st.session_state.cart, key=f"check_{product_id}")
-                with c2:
-                    if checked:
-                        quantity = st.number_input(
-                            "כמות", min_value=1, value=st.session_state.cart.get(product_id, 1), step=1, key=f"qty_{product_id}"
-                        )
-                        st.session_state.cart[product_id] = int(quantity)
-                    elif product_id in st.session_state.cart:
-                        del st.session_state.cart[product_id]
+    # תצוגת טבלה דחוסה: שם מוצר + צ'קבוקס בצד
+    # אנחנו משתמשים ב-container כדי ליצור רשימה נקייה ללא "למטה" מיותר
+    for _, product in filtered.head(50).iterrows(): # הגדלנו ל-50 שורות במבט אחד
+        product_id = str(product["product_id"])
+        
+        # יצירת שורה אחת דחוסה: צ'קבוקס (שם המוצר)
+        is_checked = st.checkbox(f"{product['product_name']}", 
+                                 key=f"check_{product_id}", 
+                                 value=product_id in st.session_state.cart)
+        
+        if is_checked:
+            # אם מסומן, הצג תיבת כמות קטנה בצד (בתוך columns כדי שיהיה צמוד)
+            c1, c2 = st.columns([4, 1])
+            with c2:
+                qty = st.number_input("כמות", min_value=1, value=st.session_state.cart.get(product_id, 1), 
+                                      step=1, key=f"qty_{product_id}", label_visibility="collapsed")
+                st.session_state.cart[product_id] = int(qty)
+        elif product_id in st.session_state.cart:
+            del st.session_state.cart[product_id]
 
 with tab2:
     st.subheader("📋 מוצרים שנבחרו כרגע")
