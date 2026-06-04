@@ -44,15 +44,6 @@ st.markdown("""
         height: 90px;
         margin-bottom: 15px;
     }
-    
-    .cartiq-logo svg {
-        width: 100%;
-        height: 100%;
-    }
-    
-    .cartiq-logo .cart-body { fill: #ffffff; }
-    .cartiq-logo .cart-wheels { fill: #fed7aa; }
-    .cartiq-logo .cart-light { fill: #f97316; }
 
     .hero-title {
         font-size: 55px;
@@ -67,15 +58,6 @@ st.markdown("""
         margin-top: 8px;
         font-weight: 300;
         color: #e2e8f0;
-    }
-
-    .product-card {
-        background-color: #ffffff;
-        border-right: 6px solid #22c55e;
-        padding: 15px 20px;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
-        margin-top: 15px;
     }
 
     .metric-container {
@@ -114,7 +96,7 @@ st.markdown("""
 
 DATA_DIR = Path("data")
 
-@st.cache_data(ttl=600)  # שמירה בזיכרון ל-10 דקות כדי לשמור על מהירות שיא
+@st.cache_data(ttl=60)  # צמצום זמן הזיכרון לדקה אחת בלבד כדי להבטיח רענון נתונים מהיר
 def load_data():
     db_path = DATA_DIR / "cartiq.db"
     if not db_path.exists():
@@ -128,9 +110,9 @@ def load_data():
     promotions = pd.read_sql_query("SELECT * FROM promotions", conn)
     conn.close()
     
-    # המרת מפתחות למספרים שלמים כדי למנוע בעיות התאמה בטעינה
-    products["product_id"] = products["product_id"].astype(int)
-    prices["product_id"] = prices["product_id"].astype(int)
+    # המרת מפתחות לטקסט אחיד למניעת בעיות התאמה
+    products["product_id"] = products["product_id"].astype(str)
+    prices["product_id"] = prices["product_id"].astype(str)
     prices["chain_id"] = prices["chain_id"].astype(int)
     chains["chain_id"] = chains["chain_id"].astype(int)
     
@@ -208,15 +190,6 @@ if "cart" not in st.session_state:
 # באנר פתיחה ממותג
 st.markdown("""
 <div class="hero-banner">
-    <div class="cartiq-logo">
-        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <path class="cart-body" d="M10,20 L25,20 L35,65 L85,65 L90,30 L30,30" stroke-width="5" stroke="white" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle class="cart-wheels" cx="40" cy="80" r="8" fill="white"/>
-            <circle class="cart-wheels" cx="80" cy="80" r="8" fill="white"/>
-            <path class="cart-light" d="M50,15 L50,15 A12,12 0 0 1 62,27 L62,35 L38,35 L38,27 A12,12 0 0 1 50,15 L50,15" stroke-width="3" stroke="#f97316" fill="white"/>
-            <rect class="cart-light" x="42" y="35" width="16" height="5" rx="2" fill="#f97316"/>
-        </svg>
-    </div>
     <div class="hero-title">CartIQ</div>
     <div class="hero-subtitle">הסל החכם שלך: השוואה ואופטימיזציה בזמן אמת מול מחירי אמת</div>
 </div>
@@ -235,51 +208,59 @@ with tab1:
     with col_cat:
         category = st.selectbox("בחר מחלקה / קטגוריה", sorted(products["category"].unique()))
     with col_src:
-        search = st.text_input("חיפוש חופשי (מומלץ! הקלידו שם מוצר, מותג או ברקוד)")
+        # שימוש ב-strip למניעת בעיות של רווחים נסתרים
+        search = st.text_input("חיפוש חופשי (מומלץ! הקלידו שם מוצר או מותג)").strip()
 
-    # מנגנון סינון חכם שלא יתקע את המערכת
+    # מנגנון סינון חכם ומאובטח
     if search:
         filtered = products[products["product_name"].str.contains(search, case=False, na=False)]
     else:
         filtered = products[products["category"] == category]
 
     total_found = len(filtered)
-    st.caption(f"נמצאו {total_found} מוצרים מתאימים.")
+    
+    # מדד כמות בולט כדי לוודא שהדאטא עולה
+    st.metric(label="מוצרים זמינים להצגה", value=total_found)
 
-    # הגבלת תצוגה ל-30 מוצרים כדי לשמור על מהירות תגובה
+    # הגבלת תצוגה כדי לשמור על מהירות תגובה
     if total_found > 30:
-        st.info("💡 מציג את 30 המוצרים הראשונים בלבד כדי לשמור על מהירות האתר. השתמשו בתיבת החיפוש החופשי כדי למקד את התוצאה שלכם.")
+        st.info("💡 מציג את 30 המוצרים הראשונים בלבד כדי לשמור על מהירות האתר. השתמשו בתיבת החיפוש החופשי כדי למקד.")
         filtered = filtered.head(30)
 
     st.write("---")
 
-    # הצגת המוצרים בכרטיסיות עיצוב נקיות
-    for _, product in filtered.iterrows():
-        product_id = int(product["product_id"])
-        
-        st.markdown(f"""
-        <div class="product-card">
-            <strong>{product['product_name']}</strong> | מותג: {product['brand']} | יחידה: {product['unit']}
-        </div>
-        """, unsafe_allow_html=True)
-        
-        c1, c2, _ = st.columns([2, 2, 5])
-        with c1:
-            checked = st.checkbox("הוסף לסל", value=product_id in st.session_state.cart, key=f"check_{product_id}")
-        with c2:
-            if checked:
-                quantity = st.number_input(
-                    "כמות", min_value=1, value=st.session_state.cart.get(product_id, 1), step=1, key=f"qty_{product_id}"
-                )
-                st.session_state.cart[product_id] = int(quantity)
-            elif product_id in st.session_state.cart:
-                del st.session_state.cart[product_id]
+    if filtered.empty:
+        st.warning("לא נמצאו מוצרים להצגה בקטגוריה זו. נסו לנקות את תיבת החיפוש החופשי.")
+    else:
+        # הצגת מוצרים מבוססת אלמנטים מובנים של Streamlit למניעת קריסות תווים
+        for _, product in filtered.iterrows():
+            product_id = str(product["product_id"])
+            p_name = product["product_name"]
+            p_brand = product["brand"]
+            p_unit = product["unit"]
+            
+            # יצירת קופסה מאובטחת לכל מוצר
+            with st.container(border=True):
+                st.write(f"🍏 **{p_name}**")
+                st.caption(f"מותג: {p_brand} | יחידת מידה: {p_unit}")
+                
+                c1, c2, _ = st.columns([2, 2, 5])
+                with c1:
+                    checked = st.checkbox("הוסף לסל", value=product_id in st.session_state.cart, key=f"check_{product_id}")
+                with c2:
+                    if checked:
+                        quantity = st.number_input(
+                            "כמות", min_value=1, value=st.session_state.cart.get(product_id, 1), step=1, key=f"qty_{product_id}"
+                        )
+                        st.session_state.cart[product_id] = int(quantity)
+                    elif product_id in st.session_state.cart:
+                        del st.session_state.cart[product_id]
 
 with tab2:
     st.subheader("📋 מוצרים שנבחרו כרגע")
 
     if not st.session_state.cart:
-        st.info("סל הקניות שלך ריק. חזר לטאב בחירת מוצרים כדי להתחיל להרכיב את הסל.")
+        st.info("סל הקניות שלך ריק. חזור לטאב בחירת מוצרים כדי להתחיל.")
     else:
         cart_df = products[products["product_id"].isin(st.session_state.cart.keys())].copy()
         cart_df["quantity"] = cart_df["product_id"].map(st.session_state.cart)
@@ -294,20 +275,20 @@ with tab3:
     
     col_budget, col_btn = st.columns([2, 1])
     with col_budget:
-        budget = st.number_input("הגדר תקציב מקסימלי (אופציונלי, השאר 0 ללא הגבלה)", min_value=0.0, value=0.0, step=10.0)
+        budget = st.number_input("תקציב מקסימלי (אופציונלי, השאר 0 ללא הגבלה)", min_value=0.0, value=0.0, step=10.0)
     with col_btn:
         st.write("<br>", unsafe_allow_html=True)
         calc_button = st.button("🚀 חשב את הסל הזול ביותר", use_container_width=True)
 
     if calc_button:
         if not st.session_state.cart:
-            st.error("הסל ריק! אנא בחר לפחות מוצר אחד בטאב הראשון.")
+            st.error("הסל ריק! אנא בחר מוצרים.")
         else:
-            with st.spinner("מריץ אלגוריתם השוואה ומחשב עלויות מול מחירי שופרסל החיים..."):
+            with st.spinner("משווה מול מחירים חיים..."):
                 costs_df = calculate_costs(st.session_state.cart, prices, chains, promotions)
                 
                 if costs_df.empty:
-                    st.error("לא נמצאו מחירי שטח עבור המוצרים שבחרת ברשתות השיווק.")
+                    st.error("לא נמצאו מחירים למוצרים אלו ברשתות השיווק.")
                 else:
                     best_chain, within_budget = choose_best_chain(costs_df, budget)
                     sorted_costs = costs_df.sort_values("עלות סל")
@@ -321,9 +302,9 @@ with tab3:
                     with res_col1:
                         st.markdown(f"""
                         <div class="metric-container">
-                            <span style="font-size: 16px; color: #64748b; font-weight: bold;">הרשת המשתלמת ביותר</span>
-                            <h2 style="color: #8b5cf6; margin: 5px 0;">{best_chain['רשת']}</h2>
-                            <span style="font-size: 28px; font-weight: 800; color: #1e293b;">{best_chain['עלות סל']} ₪</span>
+                            <span style="font-size: 16px; font-weight: bold;">הרשת המשתלמת ביותר</span>
+                            <h2 style="color: #8b5cf6;">{best_chain['רשת']}</h2>
+                            <span style="font-size: 28px; font-weight: 800;">{best_chain['עלות סל']} ₪</span>
                         </div>
                         """, unsafe_allow_html=True)
 
@@ -332,13 +313,9 @@ with tab3:
                             saving = round(sorted_costs.iloc[1]["עלות סל"] - best_chain["עלות סל"], 2)
                             st.markdown(f"""
                             <div class="saving-container">
-                                <span style="font-size: 16px; font-weight: bold;">החיסכון שלך ברשת זו</span>
-                                <h2 style="margin: 5px 0; font-weight: 800;">{saving} ₪</h2>
-                                <span style="font-size: 14px;">יותר זול מהרשת הבאה בתור!</span>
+                                <h2>{saving} ₪</h2>
+                                <span>יותר זול מהרשת הבאה בתור!</span>
                             </div>
                             """, unsafe_allow_html=True)
                         else:
-                            st.info("כאשר נחבר את שאר הרשתות, יוצג כאן מדד החיסכון המדויק שלך מול המתחרים!")
-
-                    if budget > 0 and not within_budget:
-                        st.warning("⚠️ שימו לב: עלות הסל חורגת מהתקציב המקסימלי שהגדרתם.")
+                            st.info("כאשר נחבר את שאר הרשתות, יוצג כאן מדד החיסכון המדויק!")
