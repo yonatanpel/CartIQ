@@ -8,6 +8,8 @@ from pathlib import Path
 import io
 import pandas as pd
 
+
+
 DB_PATH = Path("data/cartiq.db")
 CATEGORIES_FILE = Path("data/categories.csv") 
 
