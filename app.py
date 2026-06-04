@@ -5,35 +5,59 @@ import pulp
 
 st.set_page_config(page_title="CartIQ", page_icon="🛒", layout="wide")
 
+DATA_DIR = Path(__file__).parent / "data"
+
 st.markdown("""
 <style>
 .stApp {
     direction: rtl;
     text-align: right;
+    background: linear-gradient(135deg, #f7fff9 0%, #ffffff 45%, #eef8f1 100%);
 }
 h1, h2, h3, p, label, div {
     direction: rtl;
     text-align: right;
 }
+.hero {
+    background: white;
+    padding: 32px;
+    border-radius: 24px;
+    border: 1px solid #d8f3dc;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.06);
+    margin-bottom: 22px;
+}
 .title {
-    font-size: 44px;
-    font-weight: 800;
+    font-size: 52px;
+    font-weight: 900;
     color: #1b7f3a;
 }
 .subtitle {
-    font-size: 18px;
+    font-size: 20px;
     color: #555;
+    margin-top: 8px;
+}
+.card {
+    background: white;
+    padding: 22px;
+    border-radius: 20px;
+    border: 1px solid #e6e6e6;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.04);
+    margin-bottom: 15px;
 }
 .result-box {
-    background-color: #eef9f0;
+    background: #eef9f0;
     border: 1px solid #b7e4c7;
-    padding: 20px;
-    border-radius: 14px;
+    padding: 24px;
+    border-radius: 20px;
+    margin-top: 20px;
+}
+.small-note {
+    color: #666;
+    font-size: 14px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-DATA_DIR = Path(__file__).parent / "data"
 
 @st.cache_data
 def load_data():
@@ -41,8 +65,9 @@ def load_data():
     chains = pd.read_csv(DATA_DIR / "chains.csv")
     prices = pd.read_csv(DATA_DIR / "prices.csv")
     promotions = pd.read_csv(DATA_DIR / "promotions.csv")
-
     return products, chains, prices, promotions
+
+
 def get_discount(product_id, chain_id, base_total, promotions):
     rows = promotions[
         (promotions["product_id"] == product_id) &
@@ -65,7 +90,6 @@ def calculate_costs(cart, prices, chains, promotions):
 
     for _, chain in chains.iterrows():
         chain_id = int(chain["chain_id"])
-        chain_name = chain["chain_name"]
         total = 0
 
         for product_id, quantity in cart.items():
@@ -84,7 +108,7 @@ def calculate_costs(cart, prices, chains, promotions):
 
         results.append({
             "chain_id": chain_id,
-            "רשת": chain_name,
+            "רשת": chain["chain_name"],
             "עלות סל": round(total, 2)
         })
 
@@ -125,13 +149,22 @@ products, chains, prices, promotions = load_data()
 if "cart" not in st.session_state:
     st.session_state.cart = {}
 
-st.markdown('<div class="title">CartIQ 🛒</div>', unsafe_allow_html=True)
-st.markdown(
-    '<div class="subtitle">מערכת לאופטימיזציית סל קניות והשוואת מחירים בין רשתות שיווק</div>',
-    unsafe_allow_html=True
-)
+st.markdown("""
+<div class="hero">
+    <div class="title">CartIQ 🛒</div>
+    <div class="subtitle">
+        בונים סל קניות, משווים מחירים בין רשתות שיווק ומוצאים את הרשת המשתלמת ביותר.
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-st.divider()
+col_a, col_b, col_c = st.columns(3)
+with col_a:
+    st.metric("מוצרים בקטלוג", len(products))
+with col_b:
+    st.metric("רשתות להשוואה", len(chains))
+with col_c:
+    st.metric("מוצרים בסל", len(st.session_state.cart))
 
 tab1, tab2, tab3 = st.tabs([
     "🛍️ בחירת מוצרים",
@@ -140,10 +173,11 @@ tab1, tab2, tab3 = st.tabs([
 ])
 
 with tab1:
+    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.header("בחירת מוצרים לפי קטגוריות")
 
     category = st.selectbox("בחרו קטגוריה", sorted(products["category"].unique()))
-    search = st.text_input("חיפוש מוצר")
+    search = st.text_input("חיפוש מוצר", placeholder="לדוגמה: חלב, לחם, עגבניות")
 
     if search:
         filtered = products[
@@ -152,10 +186,12 @@ with tab1:
     else:
         filtered = products[products["category"] == category]
 
+    st.markdown('<p class="small-note">סמנו מוצר, והכמות תתחיל אוטומטית מ־1.</p>', unsafe_allow_html=True)
+
     for _, product in filtered.iterrows():
         product_id = int(product["product_id"])
 
-        col1, col2 = st.columns([3, 1])
+        col1, col2 = st.columns([4, 1])
 
         with col1:
             checked = st.checkbox(
@@ -177,7 +213,10 @@ with tab1:
             elif product_id in st.session_state.cart:
                 del st.session_state.cart[product_id]
 
+    st.markdown('</div>', unsafe_allow_html=True)
+
 with tab2:
+    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.header("רשימת קניות מסודרת לפי מחלקות")
 
     if not st.session_state.cart:
@@ -187,14 +226,18 @@ with tab2:
             products["product_id"].isin(st.session_state.cart.keys())
         ].copy()
 
-        cart_df["quantity"] = cart_df["product_id"].map(st.session_state.cart)
+        cart_df["כמות"] = cart_df["product_id"].map(st.session_state.cart)
 
         for category in sorted(cart_df["category"].unique()):
             st.subheader(category)
-            for _, row in cart_df[cart_df["category"] == category].iterrows():
-                st.write(f"• {row['product_name']} — כמות: {row['quantity']}")
+            category_df = cart_df[cart_df["category"] == category]
+            for _, row in category_df.iterrows():
+                st.write(f"• {row['product_name']} — כמות: {row['כמות']}")
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 with tab3:
+    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.header("חישוב סל הקניות המשתלם ביותר")
 
     budget = st.number_input(
@@ -204,7 +247,7 @@ with tab3:
         step=10.0
     )
 
-    if st.button("חשב סל אופטימלי"):
+    if st.button("חשב סל אופטימלי", type="primary"):
         if not st.session_state.cart:
             st.error("יש לבחור לפחות מוצר אחד לפני ביצוע החישוב.")
         else:
@@ -217,25 +260,46 @@ with tab3:
                 )
 
                 best_chain, within_budget = choose_best_chain(costs_df, budget)
-
-            st.subheader("השוואת עלויות בין רשתות")
-            sorted_costs = costs_df.sort_values("עלות סל")
-            st.dataframe(sorted_costs[["רשת", "עלות סל"]], use_container_width=True)
+                sorted_costs = costs_df.sort_values("עלות סל")
 
             st.markdown('<div class="result-box">', unsafe_allow_html=True)
 
-            st.success(f"הרשת המשתלמת ביותר היא: {best_chain['רשת']}")
-            st.metric("עלות הסל", f"{best_chain['עלות סל']} ₪")
+            st.subheader("🏆 הרשת המשתלמת ביותר")
+            st.success(f"{best_chain['רשת']}")
 
-            if budget > 0 and not within_budget:
-                st.warning("לא נמצאה רשת שעומדת בתקציב שהוגדר. מוצגת הרשת הזולה ביותר, אך קיימת חריגה מהתקציב.")
+            res_col1, res_col2, res_col3 = st.columns(3)
+
+            with res_col1:
+                st.metric("עלות הסל", f"{best_chain['עלות סל']} ₪")
 
             if len(sorted_costs) > 1:
                 saving = round(
                     sorted_costs.iloc[1]["עלות סל"] - best_chain["עלות סל"],
                     2
                 )
+            else:
+                saving = 0
+
+            with res_col2:
                 st.metric("חיסכון מול הרשת הבאה", f"{saving} ₪")
 
+            with res_col3:
+                if budget > 0:
+                    gap = round(budget - best_chain["עלות סל"], 2)
+                    st.metric("פער מהתקציב", f"{gap} ₪")
+                else:
+                    st.metric("תקציב", "לא הוגדר")
+
+            if budget > 0 and not within_budget:
+                st.warning("לא נמצאה רשת שעומדת בתקציב שהוגדר. מוצגת הרשת הזולה ביותר, אך קיימת חריגה מהתקציב.")
+
             st.markdown('</div>', unsafe_allow_html=True)
-            
+
+            st.subheader("השוואת עלויות בין כל הרשתות")
+            st.dataframe(
+                sorted_costs[["רשת", "עלות סל"]],
+                use_container_width=True,
+                hide_index=True
+            )
+
+    st.markdown('</div>', unsafe_allow_html=True)
