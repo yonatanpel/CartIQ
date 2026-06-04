@@ -14,40 +14,74 @@ def get_connection():
 
 def determine_category(product_name):
     """
-    מנגנון חכם שמסווג מוצר לקטגוריה על פי מילות מפתח בשם שלו.
-    ניתן להרחיב את הרשימה הזו בקלות בעתיד.
+    מנגנון סינון היררכי אחיד לכל המערכת.
     """
     name = product_name.lower()
     
-    # הגדרת מילות מפתח לכל קטגוריה
+    # 1. בדיקת טואלטיקה ופארם תחילה
+    pharm_keywords = [
+        "סבון", "שמפו", "מרכך", "קרם", "תחליב", "דאודורנט", "דאודוראנט", "שיניים", 
+        "מגבונים", "חיתול", "טואלט", "כביסה", "כלים", "ניקוי", "אקונומיקה", "היגיינה", 
+        "טמפון", "תחבושות", "פד ", "סכיני גילוח", "ג'ל", "קולגייט", "אורל", "קרליין",
+        "נקה 7", "פיניש", "טאב", "קפסולות", "מרכך כביסה", "רצפות"
+    ]
+    for keyword in pharm_keywords:
+        if keyword in name:
+            return "טואלטיקה, פארם וניקוי"
+
+    # 2. מיפוי שאר המחלקות המאוחדות
     categories_mapping = {
-        "ירקות טריים": ["עגבני", "מלפפון", "גזר", "בצל", "תפוחי אדמה", "חסה", "פלפל", "קישוא", "כרובית", "ברוקולי", "פטרוזיליה", "צנון", "שום", "לקט ירק"],
-        "פירות טריים": ["תפוח", "בננה", "תפוז", "אבטיח", "מלון", "ענבים", "תות", "אפרסק", "אגס", "קלמנטינה", "לימון", "תמר", "אפרסמון"],
-        "מוצרי חלב וביצים": ["חלב", "גבינ", "קוטג", "יוגורט", "שמנת", "חמאה", "ביצי", "מעדן", "לבן", "קצפת", "מוצרלה", "פרמזן", "יוגורט"],
-        "משקאות ואירוח": ["קולה", "מים", "מיץ", "סודה", "משקה", "נביעות", "עין גדי", "פריגת", "פנטה", "ספרייט", "בירה", "יין", "טוניק", "נקטר"],
-        "מאפה ולחם": ["לחם", "פיתה", "לחמניה", "באגט", "קרואסון", "עוגה", "עוגיות", "מאפה", "פילסברי", "פניני", "טוסט"],
-        "בשר, עוף ודגים": ["עוף", "בשר", "נקניק", "המבורגר", "דג", "טונה", "סלמון", "נקניקיות", "שניצל", "פרגיות", "קבב", "טלה", "סטייק"],
-        "קפואים": ["קפוא", "גלידה", "צ'יפס", "מלווח", "ג'חנון", "בורקס", "פיצה קפואה", "קרמבו", "שלגון"],
-        "מזווה וכללי": ["אורז", "פסטה", "פתיתים", "שמן", "סוכר", "מלח", "קמח", "רוטב", "קצ'ופ", "מיונז", "שימורי", "תבלין", "שוקולד", "חטיף", "במבה", "ביסלי", "קפה", "תניס", "קורנפלקס", "דגני"]
+        "ירקות טריים": [
+            "עגבני", "מלפפון", "גזר", "בצל", "תפוחי אדמה", "תפוח אדמה", "חסה", "פלפל", 
+            "קישוא", "כרובית", "ברוקולי", "פטרוזיליה", "צנון", "שום", "לקט ירק", "פטריות", 
+            "כרוב", "בטטה", "צנונית", "סלק", "חציל", "קישואים", "דלעת", "סלרי", "קולורבי"
+        ],
+        "פירות טריים": [
+            "תפוח ", "תפוחי", "בננה", "תפוז", "אבטיח", "מלון", "ענבים", "תות", "אפרסק", 
+            "אגס", "קלמנטינה", "לימון", "תמר", "אפרסמון", "אבוקדו", "מנגו", "אפרסקים", 
+            "שזיף", "אשכולית", "ליצ'י", "קלמנטינות", "פומלה", "קיווי"
+        ],
+        "מוצרי חלב וביצים": [
+            "חלב", "גבינ", "קוטג", "יוגורט", "שמנת", "חמאה", "ביצי", "מעדן", "לבן", 
+            "קצפת", "מוצרלה", "פרמזן", "צהובה", "לאבנה", "תנובה", "טרה", "שטראוס", "יופלה", "גיל "
+        ],
+        "עוף, בשר, דגים": [
+            "עוף", "בשר", "נקניק", "המבורגר", "דג ", "דגי", "טונה", "סלמון", "נקניקיות", 
+            "שניצל", "פרגיות", "קבב", "טלה", "סטייק", "בקר", "טריים", "נקניקיות", "פסטרמה", "כבד"
+        ],
+        "מאפה ולחם": [
+            "לחם", "פיתה", "לחמניה", "לחמניות", "באגט", "קרואסון", "עוגה", "עוגיות", 
+            "מאפה", "פילסברי", "טוסט", "פרוס", "חלה", "פלוט", "רוגלך"
+        ],
+        "משקאות ואירוח": [
+            "קולה", "מים", "מיץ", "סודה", "משקה", "נביעות", "עין גדי", "פריגת", "פנטה", 
+            "ספרייט", "בירה", "יין", "טוניק", "נקטר", "נסטי", "פיוז", "שוופס", "טרופית", "אקסל"
+        ],
+        "קפואים": [
+            "קפוא", "גלידה", "צ'יפס", "מלווח", "ג'חנון", "בורקס", "פיצה קפואה", "קרמבו", 
+            "שלגון", "קפואה", "בן אנד", "מילקה גלידה", "טבעול"
+        ],
+        "מזווה וכללי": [
+            "אורז", "פסטה", "פתיתים", "שמן", "סוכר", "מלח", "קמח", "רוטב", "קצ'ופ", "קטשופ", 
+            "מיונז", "שימורי", "תבלין", "שוקולד", "חטיף", "במבה", "ביסלי", "קפה", "תה ", 
+            "קורנפלקס", "דגני", "עדשים", "שעועית", "מרק", "ספגטי", "נודלס", "טחינה", "דבש"
+        ]
     }
     
-    # סריקה ובדיקה האם שם המוצר מכיל את אחת ממילות המפתח
     for category, keywords in categories_mapping.items():
         for keyword in keywords:
             if keyword in name:
                 return category
                 
-    return "אחר / כללי" # ברירת מחדל אם לא נמצאה התאמה
+    return "אחר / כללי"
 
 def fetch_shufersal_real_prices(store_id="1", chain_id=1):
     print(f"[{datetime.datetime.now()}] Connecting to Shufersal portal for store {store_id}...")
-    
     base_url = "http://prices.shufersal.co.il"
     search_url = f"{base_url}/FileObject/UpdateCategory?catID=2&storeId={store_id}"
     
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
     
     try:
@@ -63,7 +97,6 @@ def fetch_shufersal_real_prices(store_id="1", chain_id=1):
     for a in soup.find_all('a', href=True):
         href = a['href']
         href_lower = href.lower()
-        
         if 'pricefull' in href_lower and ('gz' in href_lower or 'zip' in href_lower):
             download_link = href
             if download_link.startswith('/'):
@@ -80,7 +113,6 @@ def fetch_shufersal_real_prices(store_id="1", chain_id=1):
         file_response = requests.get(download_link, headers=headers, timeout=120)
         print("Decompressing file and parsing XML...")
         compressed_file = io.BytesIO(file_response.content)
-        
         decompressed_file = gzip.GzipFile(fileobj=compressed_file)
         xml_content = decompressed_file.read()
         parse_and_store_xml(xml_content, chain_id)
@@ -104,8 +136,6 @@ def parse_and_store_xml(xml_content, chain_id):
         try:
             product_id = item.find("ItemCode").text
             product_name = item.find("ItemName").text
-            
-            # שימוש במנגנון החדש לקביעת הקטגוריה לפי שם המוצר!
             category = determine_category(product_name)
             
             manufacture = item.find("ManufactureName")
@@ -122,11 +152,9 @@ def parse_and_store_xml(xml_content, chain_id):
 
             products_to_upsert.append((product_id, product_name, category, brand, unit))
             prices_to_upsert.append((product_id, chain_id, price, current_time))
-            
         except Exception as e:
             continue
 
-    print("Saving products to database with dynamic categories...")
     cursor.executemany("""
         INSERT INTO products (product_id, product_name, category, brand, unit)
         VALUES (?, ?, ?, ?, ?)
@@ -137,7 +165,6 @@ def parse_and_store_xml(xml_content, chain_id):
             unit=excluded.unit
     """, products_to_upsert)
 
-    print("Saving prices to database...")
     cursor.executemany("""
         INSERT INTO prices (product_id, chain_id, price, last_update)
         VALUES (?, ?, ?, ?)
@@ -148,8 +175,7 @@ def parse_and_store_xml(xml_content, chain_id):
 
     conn.commit()
     conn.close()
-    print(f"Successfully updated database with {len(prices_to_upsert)} prices for Chain ID {chain_id}!")
+    print(f"Successfully updated database with {len(prices_to_upsert)} prices!")
 
 if __name__ == "__main__":
     fetch_shufersal_real_prices(store_id="1", chain_id=1)
-    
