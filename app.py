@@ -204,36 +204,27 @@ tab1, tab2, tab3 = st.tabs([
 with tab1:
     st.subheader("🔍 חפשו והוסיפו מוצרים")
     
+    # מילון אימוג'ים מעודכן לשמות הקטגוריות החדשים
+    cat_icons = {
+        "ירקות": "🥦", "פירות": "🍎", "ביצים, חלב וגבינות": "🧀",
+        "קצביה": "🥩", "מוצרים קפואים": "🧊", "מאפים ולחם": "🍞",
+        "טואלטיקה": "🧼", "מוצרי ניקוי": "🧹", "אירוח": "🍴",
+        "מזווה": "🥫", "כללי": "🛒"
+    }
+    
     col_cat, col_src = st.columns([1, 1])
     
-    # 1. הגדרת האימוג'ים
-    cat_icons = {
-        "ירקות": "🥦", 
-        "פירות": "🍎", 
-        "ביצים, חלב וגבינות": "🧀",
-        "קצביה": "🥩", 
-        "מוצרים קפואים": "🧊", 
-        "מאפים ולחם": "🍞",
-        "טואלטיקה": "🧼", 
-        "מוצרי ניקוי": "🧹", 
-        "אירוח": "🍴",
-        "מזווה": "🥫", 
-        "כללי": "🛒"
-    }
-
-    # 2. קבלת כל הקטגוריות הקיימות בבסיס הנתונים
-    all_categories = sorted(products["category"].unique())
-
-    # 3. ה-selectbox עם הטיפול במקרים שחסר אימוג'י
+    # שליפת הקטגוריות מה-DB (זה יתעדכן אחרי הרצת ה-Action)
+    all_cats = sorted(products["category"].unique())
+    
     with col_cat:
         category = st.selectbox(
             "בחר מחלקה", 
-            all_categories, 
+            all_cats, 
             format_func=lambda x: f"{cat_icons.get(x, '🛒')} {x}"
         )
-        
     with col_src:
-        search = st.text_input("חיפוש חופשי").strip()
+        search = st.text_input("חיפוש חופשי")
 
     if search:
         filtered = products[products["product_name"].str.contains(search, case=False, na=False)]
