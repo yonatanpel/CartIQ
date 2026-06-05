@@ -30,34 +30,26 @@ def load_category_mapping():
 def determine_category(product_name):
     name = product_name.lower()
 
-    # 1. קטגוריות מוגדרות מראש (מותגים ומילות מפתח)
-    if any(brand in name for brand in ["פינוק", "דאב", "פנטן", "קולגייט"]):
-        return "טואלטיקה וניקוי"
-    
-    elif any(keyword in name for keyword in ["סבון", "שמפו", "מרכך", "דאודורנט", "אקונומיקה", "כביסה"]):
-        return "טואלטיקה וניקוי"
-
-    # --- מזווה (מופרד לחלוטין) ---
-    elif any(keyword in name for keyword in [
-        "קמח", "פסטה", "פתיתים", "אורז", "שימורים", "קופסת שימורים", 
-        "סוכר", "מלח", "אפייה", "שמן", "רטבים", "מיונז", "קטשופ", "קטניות", "דגני בוקר"
-    ]):
+    if any(k in name for k in ["ביצים", "חלב", "גבינה", "מעדן", "יוגורט", "שמנת"]):
+        return "ביצים, חלב וגבינות"
+    elif any(k in name for k in ["עוף", "בשר", "דג", "נקניק", "קצביה"]):
+        return "קצביה"
+    elif any(k in name for k in ["קפוא", "שניצל", "ירקות קפואים", "פיצה קפואה"]):
+        return "מוצרים קפואים"
+    elif any(k in name for k in ["לחם", "פיתה", "עוגות", "מאפה"]):
+        return "מאפים ולחם"
+    elif any(k in name for k in ["בושם", "הגיינה", "סבון", "שמפו", "מרכך", "דאודורנט"]):
+        return "טואלטיקה"
+    elif any(k in name for k in ["אקונומיקה", "ניקוי", "שקיות אשפה", "סבון כלים", "רצפה"]):
+        return "מוצרי ניקוי"
+    elif any(k in name for k in ["חד פעמי", "מפה", "מפית", "אירוח"]):
+        return "אירוח"
+    elif any(k in name for k in ["קמח", "פסטה", "פתיתים", "אורז", "שימורים", "סוכר", "מלח", "אפייה", "שמן", "רטבים"]):
         return "מזווה"
-
-    # --- שאר הקטגוריות ---
-    elif any(keyword in name for keyword in ["עגבני", "מלפפון", "גזר", "פלפל", "בצל"]):
-        return "ירקות טריים"
-    
-    elif any(keyword in name for keyword in ["תפוח", "בננה", "תפוז", "אגס"]):
-        return "פירות טריים"
-
-    elif any(keyword in name for keyword in ["עוף", "בשר", "דג", "נקניק"]):
-        return "עוף, בשר, דגים"
-        
-    elif any(keyword in name for keyword in ["לחם", "פיתה", "עוגות"]):
-        return "מאפה ולחם"
-
-    # --- כללי (נפרד לחלוטין) ---
+    elif any(k in name for k in ["עגבני", "מלפפון", "גזר", "פלפל", "בצל"]):
+        return "ירקות"
+    elif any(k in name for k in ["תפוח", "בננה", "תפוז", "אגס", "אבוקדו"]):
+        return "פירות"
     else:
         return "כללי"
 def fetch_shufersal_real_prices(store_id="1", chain_id=1):
