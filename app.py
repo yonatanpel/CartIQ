@@ -205,17 +205,33 @@ with tab1:
     st.subheader("🔍 חפשו והוסיפו מוצרים")
     
     col_cat, col_src = st.columns([1, 1])
-    with col_cat:
-        # הוספנו אימוג'ים ליד כל קטגוריה
-        cat_icons = {
-        "ירקות": "🥦", "פירות": "🍎", "ביצים, חלב וגבינות": "🧀",
-        "קצביה": "🥩", "מוצרים קפואים": "🧊", "מאפים ולחם": "🍞",
-        "טואלטיקה": "🧼", "מוצרי ניקוי": "🧹", "אירוח": "🍴",
-        "מזווה": "🥫", "כללי": "🛒"
+    
+    # 1. הגדרת האימוג'ים
+    cat_icons = {
+        "ירקות": "🥦", 
+        "פירות": "🍎", 
+        "ביצים, חלב וגבינות": "🧀",
+        "קצביה": "🥩", 
+        "מוצרים קפואים": "🧊", 
+        "מאפים ולחם": "🍞",
+        "טואלטיקה": "🧼", 
+        "מוצרי ניקוי": "🧹", 
+        "אירוח": "🍴",
+        "מזווה": "🥫", 
+        "כללי": "🛒"
     }
 
-    category = st.selectbox("בחר מחלקה", sorted(products["category"].unique()), 
-                            format_func=lambda x: f"{cat_icons.get(x, '🛒')} {x}")
+    # 2. קבלת כל הקטגוריות הקיימות בבסיס הנתונים
+    all_categories = sorted(products["category"].unique())
+
+    # 3. ה-selectbox עם הטיפול במקרים שחסר אימוג'י
+    with col_cat:
+        category = st.selectbox(
+            "בחר מחלקה", 
+            all_categories, 
+            format_func=lambda x: f"{cat_icons.get(x, '🛒')} {x}"
+        )
+        
     with col_src:
         search = st.text_input("חיפוש חופשי").strip()
 
