@@ -29,22 +29,24 @@ def load_category_mapping():
 
 def determine_category(product_name):
     name = product_name.lower()
-
+    
+    # 1. מותגים (נשארים כפי שהיו)
+    # 2. קטגוריות חדשות (לפי האיפיון שלך)
     if any(k in name for k in ["ביצים", "חלב", "גבינה", "מעדן", "יוגורט", "שמנת"]):
         return "ביצים, חלב וגבינות"
     elif any(k in name for k in ["עוף", "בשר", "דג", "נקניק", "קצביה"]):
         return "קצביה"
-    elif any(k in name for k in ["קפוא", "שניצל", "ירקות קפואים", "פיצה קפואה"]):
+    elif any(k in name for k in ["קפוא", "שניצל", "ירקות קפואים", "פיצה קפואה", "בורקס קפוא"]):
         return "מוצרים קפואים"
     elif any(k in name for k in ["לחם", "פיתה", "עוגות", "מאפה"]):
         return "מאפים ולחם"
     elif any(k in name for k in ["בושם", "הגיינה", "סבון", "שמפו", "מרכך", "דאודורנט"]):
         return "טואלטיקה"
-    elif any(k in name for k in ["אקונומיקה", "ניקוי", "שקיות אשפה", "סבון כלים", "רצפה"]):
+    elif any(k in name for k in ["אקונומיקה", "ניקוי", "שקיות אשפה", "סבון כלים", "רצפה", "מנקה"]):
         return "מוצרי ניקוי"
     elif any(k in name for k in ["חד פעמי", "מפה", "מפית", "אירוח"]):
         return "אירוח"
-    elif any(k in name for k in ["קמח", "פסטה", "פתיתים", "אורז", "שימורים", "סוכר", "מלח", "אפייה", "שמן", "רטבים"]):
+    elif any(k in name for k in ["קמח", "פסטה", "פתיתים", "אורז", "שימורים", "סוכר", "מלח", "אפייה", "שמן", "רטבים", "קטניות"]):
         return "מזווה"
     elif any(k in name for k in ["עגבני", "מלפפון", "גזר", "פלפל", "בצל"]):
         return "ירקות"
