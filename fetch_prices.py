@@ -60,10 +60,9 @@ def fetch_shufersal_real_prices(store_id="1", chain_id=1):
     search_url = f"{base_url}/FileObject/UpdateCategory?catID=2&storeId={store_id}"
     
     # שימוש ב-Headers של דפדפן כרום אמיתי
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'
-    }
+ headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+}
     
     try:
         response = requests.get(search_url, headers=headers, timeout=30)
