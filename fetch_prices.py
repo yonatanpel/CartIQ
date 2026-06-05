@@ -29,10 +29,22 @@ def load_category_mapping():
 
 def determine_category(product_name):
     name = product_name.lower()
+
+    # --- 1. שכבת המותגים (קיר ברזל) ---
+    # אם משהו נמצא כאן - הוא מנצח כל מילת מפתח אחרת!
+    if any(brand in name for brand in ["פינוק", "דאב", "dove", "פנטן", "הד אנד שולדרס", "קולגייט", "אורל בי", "קרליין", "לוריאל", "גרנייה", "נקה 7"]):
+        return "טואלטיקה"
     
-    # 1. מותגים (נשארים כפי שהיו)
-    # 2. קטגוריות חדשות (לפי האיפיון שלך)
-    if any(k in name for k in ["ביצים", "חלב", "גבינה", "מעדן", "יוגורט", "שמנת"]):
+    elif any(brand in name for brand in ["תנובה", "טרה", "שטראוס", "יופלה", "דנונה", "יטבתה", "מולר"]):
+        return "ביצים, חלב וגבינות"
+        
+    elif any(brand in name for brand in ["זוגלובק", "טירת צבי", "עוף טוב", "מילועוף"]):
+        return "קצביה"
+
+    # --- 2. שכבת הקטגוריות (מילות מפתח) ---
+    # מגיעים לכאן רק אם לא נמצא מותג מהשכבה הראשונה
+    
+    elif any(k in name for k in ["ביצים", "חלב", "גבינה", "מעדן", "יוגורט", "שמנת"]):
         return "ביצים, חלב וגבינות"
     elif any(k in name for k in ["עוף", "בשר", "דג", "נקניק", "קצביה"]):
         return "קצביה"
@@ -52,6 +64,7 @@ def determine_category(product_name):
         return "ירקות"
     elif any(k in name for k in ["תפוח", "בננה", "תפוז", "אגס", "אבוקדו"]):
         return "פירות"
+    
     else:
         return "כללי"
 def fetch_shufersal_real_prices(store_id="1", chain_id=1):
