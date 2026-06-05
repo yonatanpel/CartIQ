@@ -68,33 +68,43 @@ def determine_category(product_name):
     else:
         return "כללי"
 def fetch_shufersal_real_prices(store_id="1", chain_id=1):
-    print(f"[{datetime.datetime.now()}] Connecting to Shufersal...")
-    base_url = "http://prices.shufersal.co.il"
-    search_url = f"{base_url}/FileObject/UpdateCategory?catID=2&storeId={store_id}"
-    
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    
-    try:
-        response = requests.get(search_url, headers=headers, timeout=20)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        download_link = None
-        for a in soup.find_all('a', href=True):
-            if 'pricefull' in a['href'].lower() and 'gz' in a['href'].lower():
-                download_link = base_url + a['href'] if a['href'].startswith('/') else a['href']
-                break
-        
-        if not download_link:
-            print("Could not find PriceFull file.")
-            return
+    print(f"[{datetime.datetime.now()}] Connecting to Shufersal...")
+    base_url = "https://prices.shufersal.co.il"
+    search_url = f"{base_url}/FileObject/UpdateCategory?catID=2&storeId={store_id}"
+    
+    # שימוש ב-Headers של דפדפן כרום אמיתי
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'
+    }
+    
+    try:
+        response = requests.get(search_url, headers=headers, timeout=30)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        download_link = None
+        for a in soup.find_all('a', href=True):
+            # מחפשים את הקישור הכי עדכני לקובץ gz
+            if 'pricefull' in a['href'].lower() and a['href'].endswith('.gz'):
+                download_link = a['href'] if a['href'].startswith('http') else base_url + a['href']
+                break
+        
+        if not download_link:
+            print("Could not find PriceFull file. Check if URL structure changed.")
+            return
 
-        file_response = requests.get(download_link, headers=headers, timeout=120)
-        compressed_file = io.BytesIO(file_response.content)
-        xml_content = gzip.GzipFile(fileobj=compressed_file).read()
-        parse_and_store_xml(xml_content, chain_id)
-        
-    except Exception as e:
-        print(f"Error: {e}")
+        print(f"Downloading: {download_link}")
+        file_response = requests.get(download_link, headers=headers, timeout=120)
+        
+        if file_response.status_code == 200:
+            compressed_file = io.BytesIO(file_response.content)
+            xml_content = gzip.GzipFile(fileobj=compressed_file).read()
+            parse_and_store_xml(xml_content, chain_id)
+        else:
+            print(f"Failed to download. Status code: {file_response.status_code}")
+        
+    except Exception as e:
+        print(f"Error: {e}")
 
 def parse_and_store_xml(xml_content, chain_id):
     root = ET.fromstring(xml_content)
