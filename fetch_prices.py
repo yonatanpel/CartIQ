@@ -13,10 +13,12 @@ DB_PATH = Path("data/cartiq.db")
 # הגדרת הרשתות
 CHAINS_CONFIG = [
     {"id": 1, "name": "שופרסל", "url": "http://prices.shufersal.co.il"},
-    {"id": 2, "name": "רמי לוי", "url": "http://prices.rami-levy.co.il"},
-    {"id": 3, "name": "יוחננוף", "url": "http://prices.yohananof.co.il"},
-    {"id": 4, "name": "ויקטורי", "url": "http://prices.victory.co.il"},
-    {"id": 5, "name": "אושר עד", "url": "http://prices.osherad.co.il"}
+    # רשתות אחרות משתמשות בפורטל הנתונים של משרד הכלכלה או כתובות שונות
+    # נסה את הכתובות המעודכנות האלו:
+    {"id": 2, "name": "רמי לוי", "url": "http://prices.rami-levy.co.il"}, 
+    {"id": 3, "name": "יוחננוף", "url": "https://www.yohananof.co.il"},
+    {"id": 4, "name": "ויקטורי", "url": "https://victory.co.il"},
+    {"id": 5, "name": "אושר עד", "url": "https://osherad.co.il"}
 ]
 
 def get_connection():
