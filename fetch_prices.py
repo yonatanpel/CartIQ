@@ -11,7 +11,7 @@ import pandas as pd
 
 
 DB_PATH = Path("data/cartiq.db")
-CATEGORIES_FILE = Path("data/categories.csv") 
+CATEGORIES_FILE = Path("data/categories.csv")
 
 def get_connection():
     return sqlite3.connect(DB_PATH)
