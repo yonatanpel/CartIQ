@@ -8,105 +8,123 @@ from pathlib import Path
 import io
 import pandas as pd
 
-DB_PATH = Path("data/cartiq.db")
 
-# שימוש בכתובות ישירות ופעילות לקבצי ה-XML של הרשתות
-CHAINS_CONFIG = [
-    {"id": 7290027600007, "name": "שופרסל", "url": "http://prices.shufersal.co.il/FileObject/UpdateCategory?catID=2"},
-    {"id": 7290058140886, "name": "רמי לוי", "url": "https://url.rami-levy.co.il/FileObject/UpdateCategory?catID=2"},
-    {"id": 7290873255550, "name": "יוחננוף", "url": "https://yohananof.co.il/FileObject/UpdateCategory?catID=2"},
-    {"id": 7290691500006, "name": "ויקטורי", "url": "https://victory.co.il/FileObject/UpdateCategory?catID=2"},
-    {"id": 7290873255550, "name": "אושר עד", "url": "https://osherad.co.il/FileObject/UpdateCategory?catID=2"}
-]
+
+DB_PATH = Path("data/cartiq.db")
+CATEGORIES_FILE = Path("data/categories.csv") 
 
 def get_connection():
-    return sqlite3.connect(DB_PATH)
+    return sqlite3.connect(DB_PATH)
+
+def load_category_mapping():
+    if not CATEGORIES_FILE.exists():
+        return {}
+    try:
+        df = pd.read_csv(CATEGORIES_FILE)
+        # מחזיר מילון שבו המפתח הוא מילת המפתח והערך הוא הקטגוריה
+        return dict(zip(df['keyword'].str.lower(), df['category']))
+    except Exception as e:
+        print(f"Error loading categories.csv: {e}")
+        return {}
 
 def determine_category(product_name):
-    name = product_name.lower()
-    # "קיר ברזל" מותגים
-    if any(brand in name for brand in ["פינוק", "דאב", "dove", "פנטן", "הד אנד שולדרס", "קולגייט", "אורל בי", "קרליין", "לוריאל", "גרנייה", "נקה 7"]):
-        return "טואלטיקה"
-    elif any(brand in name for brand in ["תנובה", "טרה", "שטראוס", "יופלה", "דנונה", "יטבתה", "מולר"]):
-        return "ביצים, חלב וגבינות"
-    elif any(brand in name for brand in ["זוגלובק", "טירת צבי", "עוף טוב", "מילועוף"]):
-        return "קצביה"
-    # מילות מפתח
-    elif any(k in name for k in ["ביצים", "חלב", "גבינה", "מעדן", "יוגורט", "שמנת"]):
-        return "ביצים, חלב וגבינות"
-    elif any(k in name for k in ["עוף", "בשר", "דג", "נקניק", "קצביה"]):
-        return "קצביה"
-    elif any(k in name for k in ["קפוא", "שניצל", "ירקות קפואים", "פיצה קפואה", "בורקס קפוא"]):
-        return "מוצרים קפואים"
-    elif any(k in name for k in ["לחם", "פיתה", "עוגות", "מאפה"]):
-        return "מאפים ולחם"
-    elif any(k in name for k in ["בושם", "הגיינה", "סבון", "שמפו", "מרכך", "דאודורנט"]):
-        return "טואלטיקה"
-    elif any(k in name for k in ["אקונומיקה", "ניקוי", "שקיות אשפה", "סבון כלים", "רצפה", "מנקה"]):
-        return "מוצרי ניקוי"
-    elif any(k in name for k in ["חד פעמי", "מפה", "מפית", "אירוח"]):
-        return "אירוח"
-    elif any(k in name for k in ["קמח", "פסטה", "פתיתים", "אורז", "שימורים", "סוכר", "מלח", "אפייה", "שמן", "רטבים", "קטניות"]):
-        return "מזווה"
-    elif any(k in name for k in ["עגבני", "מלפפון", "גזר", "פלפל", "בצל"]):
-        return "ירקות"
-    elif any(k in name for k in ["תפוח", "בננה", "תפוז", "אגס", "אבוקדו"]):
-        return "פירות"
-    return "כללי"
+    name = product_name.lower()
 
-def fetch_chain_data(chain):
-    print(f"[{datetime.datetime.now()}] Connecting to {chain['name']}...")
-    # הוספת headers של דפדפן כדי לא להיחסם
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-    }
-    try:
-        response = requests.get(chain['url'], headers=headers, timeout=30)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        download_link = None
-        for a in soup.find_all('a', href=True):
-            if 'pricefull' in a['href'].lower() and 'gz' in a['href'].lower():
-                download_link = a['href'] if a['href'].startswith('http') else chain['url'].split('/FileObject')[0] + a['href']
-                break
-        
-        if download_link:
-            print(f"Downloading: {download_link}")
-            file_response = requests.get(download_link, headers=headers, timeout=120)
-            compressed_file = io.BytesIO(file_response.content)
-            xml_content = gzip.GzipFile(fileobj=compressed_file).read()
-            parse_and_store_xml(xml_content, chain['id'])
-        else:
-            print(f"Could not find PriceFull file for {chain['name']}")
-    except Exception as e:
-        print(f"Error for {chain['name']}: {e}")
+    # --- 1. שכבת המותגים (קיר ברזל) ---
+    # אם משהו נמצא כאן - הוא מנצח כל מילת מפתח אחרת!
+    if any(brand in name for brand in ["פינוק", "דאב", "dove", "פנטן", "הד אנד שולדרס", "קולגייט", "אורל בי", "קרליין", "לוריאל", "גרנייה", "נקה 7"]):
+        return "טואלטיקה"
+    
+    elif any(brand in name for brand in ["תנובה", "טרה", "שטראוס", "יופלה", "דנונה", "יטבתה", "מולר"]):
+        return "ביצים, חלב וגבינות"
+        
+    elif any(brand in name for brand in ["זוגלובק", "טירת צבי", "עוף טוב", "מילועוף"]):
+        return "קצביה"
+
+    # --- 2. שכבת הקטגוריות (מילות מפתח) ---
+    # מגיעים לכאן רק אם לא נמצא מותג מהשכבה הראשונה
+    
+    elif any(k in name for k in ["ביצים", "חלב", "גבינה", "מעדן", "יוגורט", "שמנת"]):
+        return "ביצים, חלב וגבינות"
+    elif any(k in name for k in ["עוף", "בשר", "דג", "נקניק", "קצביה"]):
+        return "קצביה"
+    elif any(k in name for k in ["קפוא", "שניצל", "ירקות קפואים", "פיצה קפואה", "בורקס קפוא"]):
+        return "מוצרים קפואים"
+    elif any(k in name for k in ["לחם", "פיתה", "עוגות", "מאפה"]):
+        return "מאפים ולחם"
+    elif any(k in name for k in ["בושם", "הגיינה", "סבון", "שמפו", "מרכך", "דאודורנט"]):
+        return "טואלטיקה"
+    elif any(k in name for k in ["אקונומיקה", "ניקוי", "שקיות אשפה", "סבון כלים", "רצפה", "מנקה"]):
+        return "מוצרי ניקוי"
+    elif any(k in name for k in ["חד פעמי", "מפה", "מפית", "אירוח"]):
+        return "אירוח"
+    elif any(k in name for k in ["קמח", "פסטה", "פתיתים", "אורז", "שימורים", "סוכר", "מלח", "אפייה", "שמן", "רטבים", "קטניות"]):
+        return "מזווה"
+    elif any(k in name for k in ["עגבני", "מלפפון", "גזר", "פלפל", "בצל"]):
+        return "ירקות"
+    elif any(k in name for k in ["תפוח", "בננה", "תפוז", "אגס", "אבוקדו"]):
+        return "פירות"
+    
+    else:
+        return "כללי"
+def fetch_shufersal_real_prices(store_id="1", chain_id=1):
+    print(f"[{datetime.datetime.now()}] Connecting to Shufersal...")
+    base_url = "http://prices.shufersal.co.il"
+    search_url = f"{base_url}/FileObject/UpdateCategory?catID=2&storeId={store_id}"
+    
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    
+    try:
+        response = requests.get(search_url, headers=headers, timeout=20)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        download_link = None
+        for a in soup.find_all('a', href=True):
+            if 'pricefull' in a['href'].lower() and 'gz' in a['href'].lower():
+                download_link = base_url + a['href'] if a['href'].startswith('/') else a['href']
+                break
+        
+        if not download_link:
+            print("Could not find PriceFull file.")
+            return
+
+        file_response = requests.get(download_link, headers=headers, timeout=120)
+        compressed_file = io.BytesIO(file_response.content)
+        xml_content = gzip.GzipFile(fileobj=compressed_file).read()
+        parse_and_store_xml(xml_content, chain_id)
+        
+    except Exception as e:
+        print(f"Error: {e}")
 
 def parse_and_store_xml(xml_content, chain_id):
-    root = ET.fromstring(xml_content)
-    conn = get_connection()
-    cursor = conn.cursor()
-    products_to_upsert = []
-    prices_to_upsert = []
-    current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    root = ET.fromstring(xml_content)
+    conn = get_connection()
+    cursor = conn.cursor()
 
-    for item in root.findall(".//Item"):
-        try:
-            p_id = item.find("ItemCode").text
-            p_name = item.find("ItemName").text
-            category = determine_category(p_name)
-            price = float(item.find("ItemPrice").text)
-            if price > 0:
-                products_to_upsert.append((p_id, p_name, category, "לא צוין", "יחידה"))
-                prices_to_upsert.append((p_id, chain_id, price, current_time))
-        except: continue
-    
-    cursor.executemany("INSERT OR REPLACE INTO products (product_id, product_name, category, brand, unit) VALUES (?, ?, ?, ?, ?)", products_to_upsert)
-    cursor.executemany("INSERT OR REPLACE INTO prices (product_id, chain_id, price, update_time) VALUES (?, ?, ?, ?)", prices_to_upsert)
-    conn.commit()
-    conn.close()
-    print("Database updated successfully!")
+    products_to_upsert = []
+    prices_to_upsert = []
+    current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    for item in root.findall(".//Item"):
+        try:
+            p_id = item.find("ItemCode").text
+            p_name = item.find("ItemName").text
+            category = determine_category(p_name)
+            brand = item.find("ManufactureName").text if item.find("ManufactureName") is not None else "לא צוין"
+            unit = item.find("UnitOfMeasure").text if item.find("UnitOfMeasure") is not None else "יחידה"
+            price = float(item.find("ItemPrice").text)
+            
+            if price > 0:
+                products_to_upsert.append((p_id, p_name, category, brand, unit))
+                prices_to_upsert.append((p_id, chain_id, price, current_time))
+        except:
+            continue
+
+    cursor.executemany("INSERT OR REPLACE INTO products VALUES (?, ?, ?, ?, ?)", products_to_upsert)
+    cursor.executemany("INSERT OR REPLACE INTO prices VALUES (?, ?, ?, ?)", prices_to_upsert)
+    conn.commit()
+    conn.close()
+    print("Database updated successfully!")
 
 if __name__ == "__main__":
-    for chain in CHAINS_CONFIG:
-        fetch_chain_data(chain)
+    fetch_shufersal_real_prices()
