@@ -10,27 +10,28 @@ import pandas as pd
 
 DB_PATH = Path("data/cartiq.db")
 
-# ID של הרשתות כפי שהן מופיעות במערכת הממשלתית
+# שימוש בכתובות ישירות ופעילות לקבצי ה-XML של הרשתות
 CHAINS_CONFIG = [
-    {"id": "shufersal", "name": "שופרסל", "code": 7290027600007},
-    {"id": "ramilevy", "name": "רמי לוי", "code": 7290058140886},
-    {"id": "yohananof", "name": "יוחננוף", "code": 7290873255550},
-    {"id": "victory", "name": "ויקטורי", "code": 7290691500006},
-    {"id": "osherad", "name": "אושר עד", "code": 7290873255550}
+    {"id": 7290027600007, "name": "שופרסל", "url": "http://prices.shufersal.co.il/FileObject/UpdateCategory?catID=2"},
+    {"id": 7290058140886, "name": "רמי לוי", "url": "https://url.rami-levy.co.il/FileObject/UpdateCategory?catID=2"},
+    {"id": 7290873255550, "name": "יוחננוף", "url": "https://yohananof.co.il/FileObject/UpdateCategory?catID=2"},
+    {"id": 7290691500006, "name": "ויקטורי", "url": "https://victory.co.il/FileObject/UpdateCategory?catID=2"},
+    {"id": 7290873255550, "name": "אושר עד", "url": "https://osherad.co.il/FileObject/UpdateCategory?catID=2"}
 ]
 
 def get_connection():
     return sqlite3.connect(DB_PATH)
 
 def determine_category(product_name):
-    # נשאר ללא שינוי, כפי שסיכמנו
     name = product_name.lower()
+    # "קיר ברזל" מותגים
     if any(brand in name for brand in ["פינוק", "דאב", "dove", "פנטן", "הד אנד שולדרס", "קולגייט", "אורל בי", "קרליין", "לוריאל", "גרנייה", "נקה 7"]):
         return "טואלטיקה"
     elif any(brand in name for brand in ["תנובה", "טרה", "שטראוס", "יופלה", "דנונה", "יטבתה", "מולר"]):
         return "ביצים, חלב וגבינות"
     elif any(brand in name for brand in ["זוגלובק", "טירת צבי", "עוף טוב", "מילועוף"]):
         return "קצביה"
+    # מילות מפתח
     elif any(k in name for k in ["ביצים", "חלב", "גבינה", "מעדן", "יוגורט", "שמנת"]):
         return "ביצים, חלב וגבינות"
     elif any(k in name for k in ["עוף", "בשר", "דג", "נקניק", "קצביה"]):
@@ -54,24 +55,30 @@ def determine_category(product_name):
     return "כללי"
 
 def fetch_chain_data(chain):
-    # הכתובת הרשמית של ה-PriceFull לפי הקוד הממשלתי
-    base_gov_url = f"https://prices.moital.gov.il/FileObject/UpdateCategory?catID=2&storeId={chain['code']}"
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    
+    print(f"[{datetime.datetime.now()}] Connecting to {chain['name']}...")
+    # הוספת headers של דפדפן כדי לא להיחסם
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+    }
     try:
-        response = requests.get(base_gov_url, headers=headers, timeout=30)
+        response = requests.get(chain['url'], headers=headers, timeout=30)
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # מחפשים את הלינק לקובץ ה-XML/GZ בתוך פורטל השקיפות
+        download_link = None
         for a in soup.find_all('a', href=True):
-            if 'pricefull' in a['href'].lower():
-                download_link = a['href']
-                print(f"Downloading for {chain['name']}...")
-                file_response = requests.get(download_link, headers=headers, timeout=120)
-                compressed_file = io.BytesIO(file_response.content)
-                xml_content = gzip.GzipFile(fileobj=compressed_file).read()
-                parse_and_store_xml(xml_content, chain['code'])
+            if 'pricefull' in a['href'].lower() and 'gz' in a['href'].lower():
+                download_link = a['href'] if a['href'].startswith('http') else chain['url'].split('/FileObject')[0] + a['href']
                 break
+        
+        if download_link:
+            print(f"Downloading: {download_link}")
+            file_response = requests.get(download_link, headers=headers, timeout=120)
+            compressed_file = io.BytesIO(file_response.content)
+            xml_content = gzip.GzipFile(fileobj=compressed_file).read()
+            parse_and_store_xml(xml_content, chain['id'])
+        else:
+            print(f"Could not find PriceFull file for {chain['name']}")
     except Exception as e:
         print(f"Error for {chain['name']}: {e}")
 
@@ -79,8 +86,6 @@ def parse_and_store_xml(xml_content, chain_id):
     root = ET.fromstring(xml_content)
     conn = get_connection()
     cursor = conn.cursor()
-    # ... (המשך הלוגיקה שלך ל-INSERT OR REPLACE נשארת זהה)
-    # מוודא שאתה שומר את ה-chain_id בטבלת המחירים!
     products_to_upsert = []
     prices_to_upsert = []
     current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -100,6 +105,7 @@ def parse_and_store_xml(xml_content, chain_id):
     cursor.executemany("INSERT OR REPLACE INTO prices (product_id, chain_id, price, update_time) VALUES (?, ?, ?, ?)", prices_to_upsert)
     conn.commit()
     conn.close()
+    print("Database updated successfully!")
 
 if __name__ == "__main__":
     for chain in CHAINS_CONFIG:
